@@ -1,0 +1,12 @@
+{application, coffer,
+ [
+  {description, ""},
+  {vsn, "0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { coffer_app, []}},
+  {env, [{ip, any}, {port, 8080}]}
+ ]}.
