@@ -1,4 +1,4 @@
--module(coffer_dumb_storage_test).
+-module(coffer_simple_storage_test).
 -include_lib("eunit/include/eunit.hrl").
 
 -define(setup(F), {setup, fun start/0, fun stop/1, F}).
@@ -18,12 +18,12 @@ basic_files_test_() ->
 %%%%%%%%%%%%%%%%%%%%%%%
 
 start() ->
-	{ok, Pid} = coffer_dumb_storage:start_link(),
-	coffer_dumb_storage:init_storage(),
+	{ok, Pid} = coffer_simple_storage:start_link(),
+	coffer_simple_storage:init_storage(),
 	Pid.
 
 stop(_) ->
-	coffer_dumb_storage:stop().
+	coffer_simple_storage:stop().
 
 %%%%%%%%%%%%%%%%%%%%
 %%% ACTUAL TESTS %%%
@@ -33,23 +33,23 @@ store_and_retrieve_a_file(_) ->
 	Content = <<"Hello World!">>,
 	ContentHash = coffer_util:content_hash(Content),
 	
-	Res = coffer_dumb_storage:store_blob(ContentHash, Content),
+	Res = coffer_simple_storage:store_blob(ContentHash, Content),
 	
-	Res2 = coffer_dumb_storage:get_blob(ContentHash),
+	Res2 = coffer_simple_storage:get_blob(ContentHash),
 	
 	[?_assert({ok, ContentHash} =:= Res),
 	 ?_assert({ok, Content} =:= Res2)].
 
 listing_blobs(_) ->
-	coffer_dumb_storage:store_blob("123", <<"Hello World!">>),
-	coffer_dumb_storage:store_blob("456", <<"Hello Foo!">>),
-	coffer_dumb_storage:store_blob("789", <<"Hello Bar!">>),
+	coffer_simple_storage:store_blob("123", <<"Hello World!">>),
+	coffer_simple_storage:store_blob("456", <<"Hello Foo!">>),
+	coffer_simple_storage:store_blob("789", <<"Hello Bar!">>),
 	
 	ListingFunc = fun(X, Acc) ->
 		[X | Acc]
 	end,
 	
-	Res = coffer_dumb_storage:fold_blobs(ListingFunc, []),
+	Res = coffer_simple_storage:fold_blobs(ListingFunc, []),
 	
 	[?_assert(Res =:= ["123", "456", "789"])].
 

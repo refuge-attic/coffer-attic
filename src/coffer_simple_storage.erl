@@ -1,8 +1,8 @@
--module(coffer_dumb_storage).
+-module(coffer_simple_storage).
 
 -behaviour(gen_server).
 
--define(REPO_HOME, "/tmp/coffer_dumb_storage").
+-define(REPO_HOME, "/tmp/coffer_simple_storage").
 -define(CHUNK_SIZE, 1024).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -47,7 +47,7 @@ init(Args) ->
 handle_call({stop}, _From, State) ->
 	{stop, normal, ok, State};
 handle_call({init, Options}, _From, State) ->
-	io:format("Initialising the dumb storage with options: ~p~n", [Options]),
+	io:format("Initialising the simple storage with options: ~p~n", [Options]),
 	Reply = do_init_storage(Options),
 	{reply, Reply, State};
 handle_call({get, Id}, _From, State) ->
@@ -90,7 +90,7 @@ maybe_init_repo() ->
 			%% TODO add here something to scan the directory
 			ok;
 		Error ->
-			throw({error, cant_init_dumb_storage, Error})
+			throw({error, cant_init_simple_storage, Error})
 	end.
 
 do_init_storage(_Options) ->
