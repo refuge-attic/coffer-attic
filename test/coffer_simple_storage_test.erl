@@ -11,7 +11,9 @@ basic_files_test_() ->
 	[{"Testing with simple files first.",
 	 ?setup(fun store_and_retrieve_a_file/1)},
 	 {"Testing with a big file.",
-	 ?setup(fun store_and_retrieve_a_big_file/1)}
+	 ?setup(fun store_and_retrieve_a_big_file/1)},
+	 {"Storing a file and testing deletion.",
+	 ?setup(fun store_and_delete_a_file/1)}
 	].
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -72,6 +74,18 @@ compute_size(Ref, N) ->
 		Other ->
 			Other
 	end.
+
+store_and_delete_a_file(_) ->
+	Content = <<"Hello World!">>,
+	ContentHash = coffer_util:content_hash(Content),
+
+	Res  = coffer_simple_storage:store_blob_content(ContentHash, Content),
+	Res2 = coffer_simple_storage:remove_blob(ContentHash),
+	Res3 = coffer_simple_storage:get_blob_init(ContentHash),
+
+	[?_assert(ok =:= Res),
+	 ?_assert(ok =:= Res2),
+	 ?_assert({error, not_exist} =:= Res3)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% HELPER FUNCTIONS %%%

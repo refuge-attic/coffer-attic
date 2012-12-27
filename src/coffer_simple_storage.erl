@@ -265,8 +265,14 @@ do_store_end(Ref, References) ->
 
 %%
 
-do_remove(_Id) ->
-	ok.
+do_remove(Id) ->
+	Filename = content_full_location(Id),
+	case file:delete(Filename) of
+		ok ->
+			ok;
+		{error, Reason} ->
+			{error, Reason}
+	end.
 
 do_fold_blobs(Func, InitState) ->
 	ProcessFilename = fun(Filename, Acc) ->
