@@ -9,7 +9,7 @@
 
 -export([start_link/0, stop/0]).
 -export([init_storage/0, init_storage/1]).
--export([get_blob_init/1, get_blob/1, get_blob_end/1]).
+-export([get_blob_init/1, get_blob/1, get_blob_end/1, get_blob_content/1]).
 -export([store_blob_init/1, store_blob/2, store_blob_end/1]).
 -export([remove_blob/1]).
 -export([fold_blobs/2]).
@@ -49,6 +49,20 @@ get_blob(Ref) ->
 
 get_blob_end(Ref) ->
 	gen_server:call(?MODULE, {get_end, Ref}).
+
+get_blob_content(Id) ->
+	{ok, Ref} = get_blob_init(Id),
+	iterate_over_data(Ref, get_blob(Ref), []).
+
+iterate_over_data(Ref, eof, Acc) ->
+	get_blob_end(Ref),
+	{ok, list_to_binary(lists:reverse(Acc))};
+iterate_over_data(Ref, {ok, Data}, Acc) ->
+	NewAcc = [Data | Acc],
+	iterate_over_data(Ref, get_blob(Ref), NewAcc);
+iterate_over_data(Ref, {error, Reason}, _) ->
+	get_blob_end(Ref),
+	{error, Reason}.
 
 %
 
