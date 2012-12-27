@@ -7,7 +7,21 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--export([start_link/0, stop/0, init_storage/0, init_storage/1, get_blob/1, store_blob/2, remove_blob/1, fold_blobs/2]).
+-export([start_link/0, stop/0]).
+-export([init_storage/0, init_storage/1]).
+-export([get_blob_init/1, get_blob/1, get_blob_end/1]).
+-export([store_blob_init/1, store_blob/2, store_blob_end/1]).
+-export([remove_blob/1]).
+-export([fold_blobs/2]).
+
+%%
+
+-record(access,
+	{
+	id,
+	iodevice
+	}
+).
 
 %%
 
@@ -17,55 +31,80 @@ start_link() ->
 stop() ->
 	gen_server:call(?MODULE, {stop}).
 
+%
+
 init_storage() ->
 	init_storage([]).
 
 init_storage(Options) ->
 	gen_server:call(?MODULE, {init, Options}).
 
-get_blob(Id) ->
-	gen_server:call(?MODULE, {get, Id}).
+%
 
-store_blob(Id, Bin) when is_binary(Bin) ->
-	gen_server:call(?MODULE, {store_binary, Id, Bin});
-store_blob(Id, Func) ->
-	gen_server:call(?MODULE, {store_stream, Id, Func}).
+get_blob_init(Id) ->
+	gen_server:call(?MODULE, {start_get, Id}).
+
+get_blob(Ref) ->
+	gen_server:call(?MODULE, {get, Ref}).
+
+get_blob_end(Ref) ->
+	gen_server:call(?MODULE, {get_end, Ref}).
+
+%
+
+store_blob_init(Id) ->
+	gen_server:call(?MODULE, {start_store, Id}).
+
+store_blob(Ref, Data) ->
+	gen_server:call(?MODULE, {store, Ref, Data}).
+
+store_blob_end(Ref) ->
+	gen_server:call(?MODULE, {store_end, Ref}).
+%
 
 remove_blob(Id) ->
 	gen_server:call(?MODULE, {remove, Id}).
+
+%
 
 fold_blobs(Func, InitState) ->
 	gen_server:call(?MODULE, {fold, Func, InitState}).
 
 %%
 
-init(Args) ->
+init(_Args) ->
 	maybe_init_repo(),
-
-	{ok, Args}.
+	References = ets:new(simple_storage_refs, [set]),
+	{ok, {References}}.
 
 handle_call({stop}, _From, State) ->
 	{stop, normal, ok, State};
-handle_call({init, Options}, _From, State) ->
-	io:format("Initialising the simple storage with options: ~p~n", [Options]),
-	Reply = do_init_storage(Options),
+handle_call({init, Options}, _From, {References}=State) ->
+	Reply = do_init_storage(References, Options),
 	{reply, Reply, State};
-handle_call({get, Id}, _From, State) ->
-	io:format("getting the blob with id: ~p~n", [Id]),
-	Reply = get_blob_directly(Id),
+handle_call({start_get, Id}, _From, {References}=State) ->
+	Reply = do_start_get(Id, References),
 	{reply, Reply, State};
-handle_call({store_binary, Id, Bin}, _From, State) ->
-	io:format("Storing the blob with id: ~p and Bin: ~p~n", [Id, Bin]),
-	Reply = store_binary_content(Id, Bin),
+handle_call({get, Ref}, _From, {References}=State) ->
+	Reply = do_get(Ref, References),
 	{reply, Reply, State};
-handle_call({store_stream, Id, Func}, _From, State) ->
-	io:format("Storing the blob with id: ~p and func: ~p~n", [Id, Func]),
-	{reply, {ok, Id}, State};
+handle_call({get_end, Ref}, _From, {References}=State) ->
+	Reply = do_get_end(Ref, References),
+	{reply, Reply, State};
+handle_call({start_store, Id}, _From, {References}=State) ->
+	Reply = do_start_store(Id, References),
+	{reply, Reply, State};
+handle_call({store, Ref, Data}, _From, {References}=State) ->
+	Reply = do_store(Ref, Data, References),
+	{reply, Reply, State};
+handle_call({store_end, Ref}, _From, {References}=State) ->
+	Reply = do_store_end(Ref, References),
+	{reply, Reply, State};
 handle_call({remove, Id}, _From, State) ->
-	io:format("Removing the blob with id: ~p~n", [Id]),
-	{reply, ok, State};
+	Reply = do_remove(Id),
+	{reply, Reply, State};
 handle_call({fold, Func, InitState}, _From, State) ->
-	Reply = fold_all_blobs(Func, InitState),
+	Reply = do_fold_blobs(Func, InitState),
 	{reply, Reply, State}.
 
 handle_cast(_Request, State) ->
@@ -93,7 +132,7 @@ maybe_init_repo() ->
 			throw({error, cant_init_simple_storage, Error})
 	end.
 
-do_init_storage(_Options) ->
+do_init_storage(References, _Options) ->
 	% first remove any blob
 	filelib:fold_files(
 		?REPO_HOME,
@@ -119,7 +158,114 @@ do_init_storage(_Options) ->
 		[],
 		Dirs
 	),
+
+	% clear the refs
+	ets:delete_all_objects(References),
+
 	ok.
+
+do_start_get(Id, References) ->
+	Filename = content_full_location(Id),
+	case filelib:is_file(Filename) of
+		false ->
+			{error, not_exist};
+		true  ->
+			Ref = make_ref(),
+			{ok, IoDevice} = file:open(Filename, [read, binary]),
+			Access = #access{ id=Id, iodevice=IoDevice },
+			ets:insert(References, {Ref, Access}),
+			{ok, Ref}
+	end.
+
+do_get(Ref, References) ->
+	case ets:match(References, {Ref, '$1'}) of
+		[] ->
+			{error, wrong_ref};
+		[[#access{iodevice=IoDevice}]] ->
+			case file:read(IoDevice, ?CHUNK_SIZE) of
+				{ok, Data} ->
+					{ok, Data};
+				eof ->
+					eof;
+				{error, Reason} ->
+					{error, Reason}
+			end;
+		_ ->
+			{error, bad_state}
+	end.
+
+do_get_end(Ref, References) ->
+	case ets:match(References, {Ref, '$1'}) of
+		[] ->
+			{error, wrong_ref};
+		[[#access{iodevice=IoDevice}]] ->
+			file:close(IoDevice),
+			ets:delete(References, Ref),
+			ok;
+		_ ->
+			{error, bad_state}
+	end.
+
+%%
+
+do_start_store(Id, References) ->
+	Filename = content_full_location(Id),
+	maybe_create_directory(content_directory(Id)),
+	Ref = make_ref(),
+	{ok, IoDevice} = file:open(Filename, [write, binary]),
+	Access = #access{id=Id, iodevice=IoDevice},
+	ets:insert(References, {Ref, Access}),
+	{ok, Ref}.
+
+do_store(Ref, Data, References) ->
+	case ets:match(References, {Ref, '$1'}) of
+		[] ->
+			{error, wrong_ref};
+		[[#access{iodevice=IoDevice}]] ->
+			case file:write(IoDevice, Data) of
+				ok ->
+					ok;
+				{error, Reason} ->
+					{error, Reason}
+			end;
+		_ ->
+			{error, bad_state}
+	end.
+
+do_store_end(Ref, References) ->
+	case ets:match(References, {Ref, '$1'}) of
+		[] ->
+			{error, wrong_ref};
+		[[#access{iodevice=IoDevice}]] ->
+			file:close(IoDevice),
+			ets:delete(References, Ref),
+			ok;
+		_ ->
+			{error, bad_state}
+	end.
+
+%%
+
+do_remove(_Id) ->
+	ok.
+
+do_fold_blobs(Func, InitState) ->
+	ProcessFilename = fun(Filename, Acc) ->
+		Elements = string:tokens(Filename, "/"),
+		Length = length(Elements),
+		Id = lists:nth(Length - 1, Elements) ++ lists:nth(Length, Elements),
+		Func(Id, Acc)
+	end,
+
+	filelib:fold_files(
+		?REPO_HOME,
+		".+",
+		true,
+		ProcessFilename,
+		InitState
+	).
+
+%%
 
 content_directory(Id) ->
     string:sub_string(Id, 1,2).
@@ -136,35 +282,3 @@ content_full_location(Id) ->
 maybe_create_directory(Path) ->
 	FullPath = ?REPO_HOME ++ "/" ++ Path,
 	file:make_dir(FullPath).
-
-store_binary_content(Id, Bin) ->
-	maybe_create_directory(content_directory(Id)),
-	
-	Filename = content_full_location(Id),
-	case file:write_file(Filename, Bin) of
-		ok ->
-			{ok, Id};
-		{error, Reason} ->
-			{error, Reason}
-	end.
-
-get_blob_directly(Id) ->
-	Filename = content_full_location(Id),
-	{ok, Bin} = file:read_file(Filename),
-	{ok, Bin}.
-
-fold_all_blobs(Func, InitState) ->
-	ProcessFilename = fun(Filename, Acc) ->
-		Elements = string:tokens(Filename, "/"),
-		Length = length(Elements),
-		Id = lists:nth(Length - 1, Elements) ++ lists:nth(Length, Elements),
-		Func(Id, Acc)
-	end,
-
-	filelib:fold_files(
-		?REPO_HOME,
-		".+",
-		true,
-		ProcessFilename,
-		InitState
-	).
