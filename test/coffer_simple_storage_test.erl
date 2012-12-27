@@ -31,10 +31,7 @@ store_and_retrieve_a_file(_) ->
 	Content = <<"Hello World!">>,
 	ContentHash = coffer_util:content_hash(Content),
 
-	{ok, Ref} = coffer_simple_storage:store_blob_init(ContentHash),
-	coffer_simple_storage:store_blob(Ref, Content),
-	Res = coffer_simple_storage:store_blob_end(Ref),
-
+	Res = coffer_simple_storage:store_blob_content(ContentHash, Content),
 	C2 = coffer_simple_storage:get_blob_content(ContentHash),
 	
 	[?_assert(ok =:= Res), ?_assert({ok, Content} =:= C2)].

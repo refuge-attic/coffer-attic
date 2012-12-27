@@ -10,7 +10,7 @@
 -export([start_link/0, stop/0]).
 -export([init_storage/0, init_storage/1]).
 -export([get_blob_init/1, get_blob/1, get_blob_end/1, get_blob_content/1]).
--export([store_blob_init/1, store_blob/2, store_blob_end/1]).
+-export([store_blob_init/1, store_blob/2, store_blob_end/1, store_blob_content/2]).
 -export([remove_blob/1]).
 -export([fold_blobs/2]).
 
@@ -74,6 +74,11 @@ store_blob(Ref, Data) ->
 
 store_blob_end(Ref) ->
 	gen_server:call(?MODULE, {store_end, Ref}).
+
+store_blob_content(Id, Data) ->
+	{ok, Ref} = store_blob_init(Id),
+	store_blob(Ref, Data),
+	store_blob_end(Ref).
 %
 
 remove_blob(Id) ->
