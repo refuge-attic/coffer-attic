@@ -2,3 +2,4 @@
 deps
 ebin
 .eunit
+rel/coffer

@@ -13,3 +13,6 @@ clean:
 
 test: all
 	@rebar eunit skip_deps=true
+
+rel: all 
+	@rebar generate
