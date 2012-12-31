@@ -64,23 +64,6 @@ store_and_retrieve_a_big_file(_) ->
 	[?_assert(ok =:= Res),
 	 ?_assert(ExpectedFinalSize =:= ActualSize)].
 
-store_loop(Ref, _ContentBit, 1000) ->
-	coffer_simple_storage:store_blob_end(Ref);
-store_loop(Ref, ContentBit, N) ->
-	coffer_simple_storage:store_blob(Ref, ContentBit),
-	store_loop(Ref, ContentBit, N+1).
-
-compute_size(Ref, N) ->
-	case coffer_simple_storage:get_blob(Ref) of
-		eof ->
-			N;
-		{ok, Data} ->
-			CurrentSize = size(Data),
-			compute_size(Ref, N + CurrentSize);
-		Other ->
-			Other
-	end.
-
 store_and_delete_a_file(_) ->
 	Content = <<"Hello World!">>,
 	ContentHash = coffer_util:content_hash(Content),
@@ -108,4 +91,20 @@ does_it_exist(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% HELPER FUNCTIONS %%%
 %%%%%%%%%%%%%%%%%%%%%%%%
-%% nothing here yet
+
+store_loop(Ref, _ContentBit, 1000) ->
+	coffer_simple_storage:store_blob_end(Ref);
+store_loop(Ref, ContentBit, N) ->
+	coffer_simple_storage:store_blob(Ref, ContentBit),
+	store_loop(Ref, ContentBit, N+1).
+
+compute_size(Ref, N) ->
+	case coffer_simple_storage:get_blob(Ref) of
+		eof ->
+			N;
+		{ok, Data} ->
+			CurrentSize = size(Data),
+			compute_size(Ref, N + CurrentSize);
+		Other ->
+			Other
+	end.
