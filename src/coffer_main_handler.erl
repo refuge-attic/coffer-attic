@@ -24,7 +24,7 @@ maybe_process_it(<<"GET">>, false, Req0) ->
 
 maybe_process_it(<<"POST">>, true, Req) ->
     {Result, Req2} = acc_multipart(Req),
-    io:format("Result: ~p~n", [Result]),
+    lager:info("Result: ~p~n", [Result]),
     cowboy_req:reply(200, [], <<"success">>, Req2);
 
 maybe_process_it(<<"POST">>, false, Req) ->
@@ -54,7 +54,7 @@ acc_multipart(Req) ->
     acc_multipart(cowboy_req:multipart_data(Req), []).
 
 acc_multipart({headers, Headers, Req}, Acc) ->
-    io:format("HEADERS ARE: ~p~n", [Headers]),
+    lager:info("HEADERS ARE: ~p~n", [Headers]),
     acc_multipart(cowboy_req:multipart_data(Req), [{Headers, []}|Acc]);
 acc_multipart({body, Data, Req}, [{Headers, BodyAcc}|Acc]) ->
     acc_multipart(cowboy_req:multipart_data(Req), [{Headers, [Data|BodyAcc]}|Acc]);

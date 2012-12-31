@@ -160,7 +160,7 @@ do_init_storage(References, _Options) ->
 		fun(Filename, _Acc) ->
 			case file:delete(Filename) of
 				ok -> ok;
-				{error, Reason} -> io:format("OOPS file ~p: ~p~n", [Filename, Reason])
+				{error, Reason} -> lager:error("OOPS file ~p: ~p~n", [Filename, Reason])
 			end
 		end,
 		[]),
@@ -171,7 +171,7 @@ do_init_storage(References, _Options) ->
 		fun(Dir, _Acc) ->
 			case file:del_dir(?REPO_HOME ++ "/" ++ Dir) of
 				ok -> ok;
-				{error, Reason} -> io:format("OOPS dir ~p: ~p~n", [Dir, Reason])
+				{error, Reason} -> lager:error("OOPS dir ~p: ~p~n", [Dir, Reason])
 			end
 		end,
 		[],
