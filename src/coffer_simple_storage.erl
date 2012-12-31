@@ -2,8 +2,8 @@
 
 -behaviour(gen_server).
 
--define(REPO_HOME, "/tmp/coffer_simple_storage").
--define(CHUNK_SIZE, 1024).
+-define(DEFAULT_REPO_HOME, "./data").
+-define(DEFAULT_CHUNK_SIZE, 4096).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -20,6 +20,20 @@
 	{
 	id,
 	iodevice
+	}
+).
+
+-record(config,
+	{
+	repo_home,
+	chunk_size
+	}
+).
+
+-record(state,
+	{
+	config,
+	references
 	}
 ).
 
@@ -91,39 +105,50 @@ fold_blobs(Func, InitState) ->
 
 %%
 
-init(_Args) ->
-	maybe_init_repo(),
+init(Properties) ->
+
+	% read the configuration
+	RepoHome = proplists:get_value(repo_home, Properties, ?DEFAULT_REPO_HOME),
+	ChunkSize = proplists:get_value(chunk_size, Properties, ?DEFAULT_CHUNK_SIZE),
+	Config = #config{repo_home=RepoHome, chunk_size=ChunkSize},
+
+	% see if the repository needs to be created
+	maybe_init_repo(RepoHome),
+
+	% create a reference storage
 	References = ets:new(simple_storage_refs, [set]),
-	{ok, {References}}.
+
+	State = #state{config=Config, references=References},
+	{ok, State}.
 
 handle_call({stop}, _From, State) ->
 	{stop, normal, ok, State};
-handle_call({init, Options}, _From, {References}=State) ->
-	Reply = do_init_storage(References, Options),
+handle_call({init, Options}, _From, #state{config=Config, references=References}=State) ->
+	Reply = do_init_storage(Config, References, Options),
 	{reply, Reply, State};
-handle_call({start_get, Id}, _From, {References}=State) ->
-	Reply = do_start_get(Id, References),
+handle_call({start_get, Id}, _From, #state{config=Config, references=References}=State) ->
+	Reply = do_start_get(Id, Config, References),
 	{reply, Reply, State};
-handle_call({get, Ref}, _From, {References}=State) ->
-	Reply = do_get(Ref, References),
+handle_call({get, Ref}, _From, #state{config=Config, references=References}=State) ->
+	Reply = do_get(Ref, Config, References),
 	{reply, Reply, State};
-handle_call({get_end, Ref}, _From, {References}=State) ->
+handle_call({get_end, Ref}, _From, #state{references=References}=State) ->
 	Reply = do_get_end(Ref, References),
 	{reply, Reply, State};
-handle_call({start_store, Id}, _From, {References}=State) ->
-	Reply = do_start_store(Id, References),
+handle_call({start_store, Id}, _From, #state{config=Config, references=References}=State) ->
+	Reply = do_start_store(Id, Config, References),
 	{reply, Reply, State};
-handle_call({store, Ref, Data}, _From, {References}=State) ->
+handle_call({store, Ref, Data}, _From, #state{references=References}=State) ->
 	Reply = do_store(Ref, Data, References),
 	{reply, Reply, State};
-handle_call({store_end, Ref}, _From, {References}=State) ->
+handle_call({store_end, Ref}, _From, #state{references=References}=State) ->
 	Reply = do_store_end(Ref, References),
 	{reply, Reply, State};
-handle_call({remove, Id}, _From, State) ->
-	Reply = do_remove(Id),
+handle_call({remove, Id}, _From, #state{config=Config}=State) ->
+	Reply = do_remove(Id, Config),
 	{reply, Reply, State};
-handle_call({fold, Func, InitState}, _From, State) ->
-	Reply = do_fold_blobs(Func, InitState),
+handle_call({fold, Func, InitState}, _From, #state{config=Config}=State) ->
+	Reply = do_fold_blobs(Func, InitState, Config),
 	{reply, Reply, State}.
 
 handle_cast(_Request, State) ->
@@ -140,8 +165,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%
 
-maybe_init_repo() ->
-	case file:make_dir(?REPO_HOME) of
+maybe_init_repo(RepoHome) ->
+	case file:make_dir(RepoHome) of
 		ok ->
 			ok;
 		{error, eexist} ->
@@ -151,10 +176,12 @@ maybe_init_repo() ->
 			throw({error, cant_init_simple_storage, Error})
 	end.
 
-do_init_storage(References, _Options) ->
+do_init_storage(Config, References, _Options) ->
+	RepoHome = Config#config.repo_home,
+
 	% first remove any blob
 	filelib:fold_files(
-		?REPO_HOME,
+		RepoHome,
 		".+",
 		true,
 		fun(Filename, _Acc) ->
@@ -166,10 +193,10 @@ do_init_storage(References, _Options) ->
 		[]),
 	
 	% then remove their directories
-	Dirs = filelib:wildcard("*", ?REPO_HOME),
+	Dirs = filelib:wildcard("*", RepoHome),
 	lists:foldl(
 		fun(Dir, _Acc) ->
-			case file:del_dir(?REPO_HOME ++ "/" ++ Dir) of
+			case file:del_dir(RepoHome ++ "/" ++ Dir) of
 				ok -> ok;
 				{error, Reason} -> lager:error("OOPS dir ~p: ~p~n", [Dir, Reason])
 			end
@@ -183,8 +210,9 @@ do_init_storage(References, _Options) ->
 
 	ok.
 
-do_start_get(Id, References) ->
-	Filename = content_full_location(Id),
+do_start_get(Id, Config, References) ->
+	RepoHome = Config#config.repo_home,
+	Filename = content_full_location(RepoHome, Id),
 	case filelib:is_file(Filename) of
 		false ->
 			{error, not_exist};
@@ -196,12 +224,13 @@ do_start_get(Id, References) ->
 			{ok, Ref}
 	end.
 
-do_get(Ref, References) ->
+do_get(Ref, Config, References) ->
+	ChunkSize = Config#config.chunk_size,
 	case ets:match(References, {Ref, '$1'}) of
 		[] ->
 			{error, wrong_ref};
 		[[#access{iodevice=IoDevice}]] ->
-			case file:read(IoDevice, ?CHUNK_SIZE) of
+			case file:read(IoDevice, ChunkSize) of
 				{ok, Data} ->
 					{ok, Data};
 				eof ->
@@ -227,9 +256,10 @@ do_get_end(Ref, References) ->
 
 %%
 
-do_start_store(Id, References) ->
-	Filename = content_full_location(Id),
-	maybe_create_directory(content_directory(Id)),
+do_start_store(Id, Config, References) ->
+	RepoHome = Config#config.repo_home,
+	Filename = content_full_location(RepoHome, Id),
+	maybe_create_directory(RepoHome, content_directory(Id)),
 	Ref = make_ref(),
 	{ok, IoDevice} = file:open(Filename, [write, binary]),
 	Access = #access{id=Id, iodevice=IoDevice},
@@ -265,8 +295,9 @@ do_store_end(Ref, References) ->
 
 %%
 
-do_remove(Id) ->
-	Filename = content_full_location(Id),
+do_remove(Id, Config) ->
+	RepoHome = Config#config.repo_home,
+	Filename = content_full_location(RepoHome, Id),
 	case file:delete(Filename) of
 		ok ->
 			ok;
@@ -274,7 +305,9 @@ do_remove(Id) ->
 			{error, Reason}
 	end.
 
-do_fold_blobs(Func, InitState) ->
+do_fold_blobs(Func, InitState, Config) ->
+	RepoHome = Config#config.repo_home,
+
 	ProcessFilename = fun(Filename, Acc) ->
 		Elements = string:tokens(Filename, "/"),
 		Length = length(Elements),
@@ -283,7 +316,7 @@ do_fold_blobs(Func, InitState) ->
 	end,
 
 	filelib:fold_files(
-		?REPO_HOME,
+		RepoHome,
 		".+",
 		true,
 		ProcessFilename,
@@ -301,9 +334,9 @@ content_filename(Id) ->
 content_location(Id) ->
     content_directory(Id) ++ "/" ++ content_filename(Id).
     
-content_full_location(Id) ->
-	?REPO_HOME ++ "/" ++ content_location(Id).
+content_full_location(RepoHome, Id) ->
+	RepoHome ++ "/" ++ content_location(Id).
 
-maybe_create_directory(Path) ->
-	FullPath = ?REPO_HOME ++ "/" ++ Path,
+maybe_create_directory(RepoHome, Path) ->
+	FullPath = RepoHome ++ "/" ++ Path,
 	file:make_dir(FullPath).
