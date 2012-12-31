@@ -3,3 +3,4 @@ deps
 ebin
 .eunit
 rel/coffer
+log
