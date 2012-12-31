@@ -1,44 +1,34 @@
 -module(coffer_simple_storage).
-
 -behaviour(gen_server).
+-define(SERVER, ?MODULE).
 
 -define(DEFAULT_REPO_HOME, "./data").
 -define(DEFAULT_CHUNK_SIZE, 4096).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+%% ------------------------------------------------------------------
+%% API Function Exports
+%% ------------------------------------------------------------------
 
 -export([start_link/1, stop/0]).
 -export([init_storage/0, init_storage/1]).
--export([get_blob_init/1, get_blob/1, get_blob_end/1, get_blob_content/1]).
--export([store_blob_init/1, store_blob/2, store_blob_end/1, store_blob_content/2]).
+-export([get_blob_init/1, get_blob/1, get_blob_end/1,
+	     get_blob_content/1]).
+-export([store_blob_init/1, store_blob/2, store_blob_end/1,
+	     store_blob_content/2]).
 -export([remove_blob/1]).
 -export([fold_blobs/2]).
 -export([exists/1]).
 
-%%
+%% ------------------------------------------------------------------
+%% gen_server Function Exports
+%% ------------------------------------------------------------------
 
--record(access,
-	{
-	id,
-	iodevice
-	}
-).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
 
--record(config,
-	{
-	repo_home,
-	chunk_size
-	}
-).
-
--record(state,
-	{
-	config,
-	references
-	}
-).
-
-%%
+%% ------------------------------------------------------------------
+%% API Function Definitions
+%% ------------------------------------------------------------------
 
 start_link(Args) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
@@ -46,15 +36,11 @@ start_link(Args) ->
 stop() ->
 	gen_server:call(?MODULE, {stop}).
 
-%
-
 init_storage() ->
 	init_storage([]).
 
 init_storage(Options) ->
 	gen_server:call(?MODULE, {init, Options}).
-
-%
 
 get_blob_init(Id) ->
 	gen_server:call(?MODULE, {start_get, Id}).
@@ -69,18 +55,6 @@ get_blob_content(Id) ->
 	{ok, Ref} = get_blob_init(Id),
 	iterate_over_data(Ref, get_blob(Ref), []).
 
-iterate_over_data(Ref, eof, Acc) ->
-	get_blob_end(Ref),
-	{ok, list_to_binary(lists:reverse(Acc))};
-iterate_over_data(Ref, {ok, Data}, Acc) ->
-	NewAcc = [Data | Acc],
-	iterate_over_data(Ref, get_blob(Ref), NewAcc);
-iterate_over_data(Ref, {error, Reason}, _) ->
-	get_blob_end(Ref),
-	{error, Reason}.
-
-%
-
 store_blob_init(Id) ->
 	gen_server:call(?MODULE, {start_store, Id}).
 
@@ -94,22 +68,24 @@ store_blob_content(Id, Data) ->
 	{ok, Ref} = store_blob_init(Id),
 	store_blob(Ref, Data),
 	store_blob_end(Ref).
-%
 
 remove_blob(Id) ->
 	gen_server:call(?MODULE, {remove, Id}).
 
-%
-
 fold_blobs(Func, InitState) ->
 	gen_server:call(?MODULE, {fold, Func, InitState}).
-
-%
 
 exists(Id) ->
 	gen_server:call(?MODULE, {exists, Id}).
 
-%%
+
+%% ------------------------------------------------------------------
+%% gen_server Function Definitions
+%% ------------------------------------------------------------------
+
+-record(access, {id, iodevice}).
+-record(config, {repo_home, chunk_size}).
+-record(state, {config, references}).
 
 init(Properties) ->
 
@@ -172,7 +148,9 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-%%
+%% ------------------------------------------------------------------
+%% Internal Function Definitions
+%% ------------------------------------------------------------------
 
 maybe_init_repo(RepoHome) ->
 	case file:make_dir(RepoHome) of
@@ -354,3 +332,13 @@ content_full_location(RepoHome, Id) ->
 maybe_create_directory(RepoHome, Path) ->
 	FullPath = RepoHome ++ "/" ++ Path,
 	file:make_dir(FullPath).
+
+iterate_over_data(Ref, eof, Acc) ->
+	get_blob_end(Ref),
+	{ok, list_to_binary(lists:reverse(Acc))};
+iterate_over_data(Ref, {ok, Data}, Acc) ->
+	NewAcc = [Data | Acc],
+	iterate_over_data(Ref, get_blob(Ref), NewAcc);
+iterate_over_data(Ref, {error, Reason}, _) ->
+	get_blob_end(Ref),
+	{error, Reason}.
