@@ -21,7 +21,11 @@ basic_files_test_() ->
 %%%%%%%%%%%%%%%%%%%%%%%
 
 start() ->
-	{ok, Pid} = coffer_simple_storage:start_link(),
+	Options = [
+        {repo_home, "/tmp/coffer_test_data"},
+        {chunk_size, 4096}
+        ],
+	{ok, Pid} = coffer_simple_storage:start_link(Options),
 	coffer_simple_storage:init_storage(),
 	Pid.
 
