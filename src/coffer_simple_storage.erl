@@ -7,7 +7,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--export([start_link/0, stop/0]).
+-export([start_link/1, stop/0]).
 -export([init_storage/0, init_storage/1]).
 -export([get_blob_init/1, get_blob/1, get_blob_end/1, get_blob_content/1]).
 -export([store_blob_init/1, store_blob/2, store_blob_end/1, store_blob_content/2]).
@@ -25,8 +25,8 @@
 
 %%
 
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Args) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 stop() ->
 	gen_server:call(?MODULE, {stop}).

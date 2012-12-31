@@ -10,7 +10,7 @@
 -export([init/1]).
 
 %% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+-define(CHILD(I, Args), {I, {I, start_link, Args}, permanent, 5000, worker, [I]}).
 
 %% ===================================================================
 %% API functions
@@ -24,9 +24,16 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    BlobManager = ?CHILD(coffer_manager, worker),
-    BlobSimpleStorage = ?CHILD(coffer_simple_storage, worker),
+    BlobManager = ?CHILD(coffer_manager, [[]]),
 
-    Children = [BlobManager, BlobSimpleStorage],
+    {Backend, BackendArgs} = case application:get_env(coffer, backend) of
+    	undefined ->
+    		{coffer_simple_storage, [[]]};
+    	{ok, Other} ->
+    		Other
+    end,
+    BlobStorage = ?CHILD(Backend, BackendArgs),
+
+    Children = [BlobManager, BlobStorage],
     RestartStrategy = {one_for_one, 1, 60},
-    {ok, { RestartStrategy, Children} }.
+    {ok, { RestartStrategy, Children } }.
