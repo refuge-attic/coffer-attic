@@ -13,7 +13,9 @@ basic_files_test_() ->
 	 {"Testing with a big file.",
 	 ?setup(fun store_and_retrieve_a_big_file/1)},
 	 {"Storing a file and testing deletion.",
-	 ?setup(fun store_and_delete_a_file/1)}
+	 ?setup(fun store_and_delete_a_file/1)},
+	 {"Testing the existence.",
+	 ?setup(fun does_it_exist/1)}
 	].
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -90,6 +92,18 @@ store_and_delete_a_file(_) ->
 	[?_assert(ok =:= Res),
 	 ?_assert(ok =:= Res2),
 	 ?_assert({error, not_exist} =:= Res3)].
+
+does_it_exist(_) ->
+	Content = <<"Hello World!">>,
+	ContentHash = coffer_util:content_hash(Content),
+
+	coffer_simple_storage:store_blob_content(ContentHash, Content),
+
+	ShouldbeThere = coffer_simple_storage:exists(ContentHash),
+	ShouldnotbeThere = coffer_simple_storage:exists("BogusId"),
+
+	[?_assert(ShouldbeThere =:= true),
+	 ?_assert(ShouldnotbeThere =:= false)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% HELPER FUNCTIONS %%%

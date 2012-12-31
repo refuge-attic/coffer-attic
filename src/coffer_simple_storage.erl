@@ -13,6 +13,7 @@
 -export([store_blob_init/1, store_blob/2, store_blob_end/1, store_blob_content/2]).
 -export([remove_blob/1]).
 -export([fold_blobs/2]).
+-export([exists/1]).
 
 %%
 
@@ -103,6 +104,11 @@ remove_blob(Id) ->
 fold_blobs(Func, InitState) ->
 	gen_server:call(?MODULE, {fold, Func, InitState}).
 
+%
+
+exists(Id) ->
+	gen_server:call(?MODULE, {exists, Id}).
+
 %%
 
 init(Properties) ->
@@ -149,6 +155,9 @@ handle_call({remove, Id}, _From, #state{config=Config}=State) ->
 	{reply, Reply, State};
 handle_call({fold, Func, InitState}, _From, #state{config=Config}=State) ->
 	Reply = do_fold_blobs(Func, InitState, Config),
+	{reply, Reply, State};
+handle_call({exists, Id}, _From, #state{config=Config}=State) ->
+	Reply = do_exists(Id, Config),
 	{reply, Reply, State}.
 
 handle_cast(_Request, State) ->
@@ -322,6 +331,11 @@ do_fold_blobs(Func, InitState, Config) ->
 		ProcessFilename,
 		InitState
 	).
+
+do_exists(Id, Config) ->
+	RepoHome = Config#config.repo_home,
+	Filename = content_full_location(RepoHome, Id),
+	filelib:is_file(Filename).
 
 %%
 
