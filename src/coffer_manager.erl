@@ -6,7 +6,14 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1]).
+-export([start_link/1, stop/0]).
+-export([init_storage/0, init_storage/1]).
+-export([get_blob_init/1, get_blob/1, get_blob_end/1,
+         get_blob_content/1]).
+-export([store_blob_init/1, store_blob/2, store_blob_end/1,
+         store_blob_content/2]).
+-export([remove_blob/1]).
+-export([fold_blobs/2]).
 -export([exists/1]).
 
 %% ------------------------------------------------------------------
@@ -23,18 +30,65 @@
 start_link(Args) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
 
-exists(ContentId) ->
-	gen_server:call(?MODULE, {exists, ContentId}).
+stop() ->
+    gen_server:call(?MODULE, {stop}).
+
+init_storage() ->
+    init_storage([]).
+
+init_storage(Options) ->
+    gen_server:call(?MODULE, {run, {init_storage, [Options]}}).
+
+get_blob_init(Id) ->
+    gen_server:call(?MODULE, {run, {get_blob_init, [Id]}}).
+
+get_blob(Ref) ->
+    gen_server:call(?MODULE, {run, {get_blob, [Ref]}}).
+
+get_blob_end(Ref) ->
+    gen_server:call(?MODULE, {run, {get_blob_end, [Ref]}}).
+
+get_blob_content(Id) ->
+    gen_server:call(?MODULE, {run, {get_blob_content, [Id]}}).
+
+store_blob_init(Id) ->
+    gen_server:call(?MODULE, {run, {store_blob_init, [Id]}}).
+
+store_blob(Ref, Data) ->
+    gen_server:call(?MODULE, {run, {store_blob, [Ref, Data]}}).
+
+store_blob_end(Ref) ->
+    gen_server:call(?MODULE, {run, {store_blob_end, [Ref]}}).
+
+store_blob_content(Id, Data) ->
+    gen_server:call(?MODULE, {run, {store_blob_content, [Id, Data]}}).
+
+remove_blob(Id) ->
+    gen_server:call(?MODULE, {run, {remove_blob, [Id]}}).
+
+fold_blobs(Func, InitState) ->
+    gen_server:call(?MODULE, {run, {fold_blobs, [Func, InitState]}}).
+
+exists(Id) ->
+    gen_server:call(?MODULE, {run, {exists, [Id]}}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(Args) ->
-    {ok, Args}.
+-record(state, {backendPid, backend, backendArgs}).
 
-handle_call({exists, ContentId}, _From, State) ->
-	Reply = do_exists(ContentId),
+init([Backend, BackendArgs]) ->
+    io:format("BackendArgs = ~p~n", [BackendArgs]),
+    BackendPid = Backend:start_link(BackendArgs),
+
+    State = #state{backendPid=BackendPid, backend=Backend, backendArgs=BackendArgs},
+    {ok, State}.
+
+handle_call({stop}, _From, State) ->
+    {stop, normal, ok, State};
+handle_call({run, {Function, Args}}, _From, #state{backend=Backend}=State) ->
+	Reply = apply(Backend, Function, Args),
 	{reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
@@ -46,7 +100,8 @@ handle_cast(_Msg, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{backend=Backend}) ->
+    Backend:stop(),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -56,6 +111,3 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-do_exists(_ContentId) ->
-	% TODO for now: just false
-	false.

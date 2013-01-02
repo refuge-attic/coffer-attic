@@ -24,16 +24,14 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    BlobManager = ?CHILD(coffer_manager, [[]]),
-
     {Backend, BackendArgs} = case application:get_env(coffer, backend) of
     	undefined ->
     		{coffer_simple_storage, [[]]};
     	{ok, Other} ->
     		Other
     end,
-    BlobStorage = ?CHILD(Backend, BackendArgs),
+    BlobManager = ?CHILD(coffer_manager, [[Backend, BackendArgs]]),
 
-    Children = [BlobManager, BlobStorage],
+    Children = [BlobManager],
     RestartStrategy = {one_for_one, 1, 60},
     {ok, { RestartStrategy, Children } }.

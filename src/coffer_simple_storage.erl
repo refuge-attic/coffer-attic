@@ -1,4 +1,5 @@
 -module(coffer_simple_storage).
+-behaviour(coffer_storage).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 
@@ -10,11 +11,11 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/1, stop/0]).
--export([init_storage/0, init_storage/1]).
--export([get_blob_init/1, get_blob/1, get_blob_end/1,
-	     get_blob_content/1]).
--export([store_blob_init/1, store_blob/2, store_blob_end/1,
-	     store_blob_content/2]).
+-export([init_storage/1]).
+-export([get_blob_init/1, get_blob/1, get_blob_end/1]).
+-export([store_blob_init/1, store_blob/2, store_blob_end/1]).
+-export([get_blob_content/1]).
+-export([store_blob_content/2]).
 -export([remove_blob/1]).
 -export([fold_blobs/2]).
 -export([exists/1]).
@@ -36,9 +37,6 @@ start_link(Args) ->
 stop() ->
 	gen_server:call(?MODULE, {stop}).
 
-init_storage() ->
-	init_storage([]).
-
 init_storage(Options) ->
 	gen_server:call(?MODULE, {init, Options}).
 
@@ -52,8 +50,7 @@ get_blob_end(Ref) ->
 	gen_server:call(?MODULE, {get_end, Ref}).
 
 get_blob_content(Id) ->
-	{ok, Ref} = get_blob_init(Id),
-	iterate_over_data(Ref, get_blob(Ref), []).
+	gen_server:call(?MODULE, {get_content, Id}).
 
 store_blob_init(Id) ->
 	gen_server:call(?MODULE, {start_store, Id}).
@@ -65,9 +62,7 @@ store_blob_end(Ref) ->
 	gen_server:call(?MODULE, {store_end, Ref}).
 
 store_blob_content(Id, Data) ->
-	{ok, Ref} = store_blob_init(Id),
-	store_blob(Ref, Data),
-	store_blob_end(Ref).
+	gen_server:call(?MODULE, {store_content, Id, Data}).
 
 remove_blob(Id) ->
 	gen_server:call(?MODULE, {remove, Id}).
@@ -117,6 +112,9 @@ handle_call({get, Ref}, _From, #state{config=Config, references=References}=Stat
 handle_call({get_end, Ref}, _From, #state{references=References}=State) ->
 	Reply = do_get_end(Ref, References),
 	{reply, Reply, State};
+handle_call({get_content, Id}, _From, #state{config=Config, references=References}=State) ->
+	Reply = do_get_blob_content(Id, Config, References),
+	{reply, Reply, State};
 handle_call({start_store, Id}, _From, #state{config=Config, references=References}=State) ->
 	Reply = do_start_store(Id, Config, References),
 	{reply, Reply, State};
@@ -125,6 +123,9 @@ handle_call({store, Ref, Data}, _From, #state{references=References}=State) ->
 	{reply, Reply, State};
 handle_call({store_end, Ref}, _From, #state{references=References}=State) ->
 	Reply = do_store_end(Ref, References),
+	{reply, Reply, State};
+handle_call({store_content, Id, Data}, _From, #state{config=Config, references=References}=State) ->
+	Reply = do_store_blob_content(Id, Config, References, Data),
 	{reply, Reply, State};
 handle_call({remove, Id}, _From, #state{config=Config}=State) ->
 	Reply = do_remove(Id, Config),
@@ -282,6 +283,17 @@ do_store_end(Ref, References) ->
 
 %%
 
+do_get_blob_content(Id, Config, References) ->
+	{ok, Ref} = do_start_get(Id, Config, References),
+	iterate_over_data(Ref, Config, References, do_get(Ref, Config, References), []).
+
+do_store_blob_content(Id, Config, References, Data) ->
+	{ok, Ref} = do_start_store(Id, Config, References),
+	do_store(Ref, Data, References),
+	do_store_end(Ref, References).
+
+%%
+
 do_remove(Id, Config) ->
 	RepoHome = Config#config.repo_home,
 	Filename = content_full_location(RepoHome, Id),
@@ -333,12 +345,12 @@ maybe_create_directory(RepoHome, Path) ->
 	FullPath = RepoHome ++ "/" ++ Path,
 	file:make_dir(FullPath).
 
-iterate_over_data(Ref, eof, Acc) ->
-	get_blob_end(Ref),
+iterate_over_data(Ref, _Config, References, eof, Acc) ->
+	do_get_end(Ref, References),
 	{ok, list_to_binary(lists:reverse(Acc))};
-iterate_over_data(Ref, {ok, Data}, Acc) ->
+iterate_over_data(Ref, Config, References, {ok, Data}, Acc) ->
 	NewAcc = [Data | Acc],
-	iterate_over_data(Ref, get_blob(Ref), NewAcc);
-iterate_over_data(Ref, {error, Reason}, _) ->
-	get_blob_end(Ref),
+	iterate_over_data(Ref, Config, References, do_get(Ref, Config, References), NewAcc);
+iterate_over_data(Ref, _Config, References, {error, Reason}, _) ->
+	do_get_end(Ref, References),
 	{error, Reason}.

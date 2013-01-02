@@ -1,4 +1,4 @@
--module(coffer_simple_storage_test).
+-module(coffer_manager_test).
 -include_lib("eunit/include/eunit.hrl").
 
 -define(setup(F), {setup, fun start/0, fun stop/1, F}).
@@ -23,16 +23,16 @@ basic_files_test_() ->
 %%%%%%%%%%%%%%%%%%%%%%%
 
 start() ->
-	Options = [
+	Options = [coffer_simple_storage, [
         {repo_home, "/tmp/coffer_test_data"},
         {chunk_size, 4096}
-        ],
-	{ok, Pid} = coffer_simple_storage:start_link(Options),
-	coffer_simple_storage:init_storage([]),
+        ]],
+	{ok, Pid} = coffer_manager:start_link(Options),
+	coffer_manager:init_storage([]),
 	Pid.
 
 stop(_) ->
-	coffer_simple_storage:stop().
+	coffer_manager:stop().
 
 %%%%%%%%%%%%%%%%%%%%
 %%% ACTUAL TESTS %%%
@@ -42,8 +42,8 @@ store_and_retrieve_a_file(_) ->
 	Content = <<"Hello World!">>,
 	ContentHash = coffer_util:content_hash(Content),
 
-	Res = coffer_simple_storage:store_blob_content(ContentHash, Content),
-	C2 = coffer_simple_storage:get_blob_content(ContentHash),
+	Res = coffer_manager:store_blob_content(ContentHash, Content),
+	C2 = coffer_manager:get_blob_content(ContentHash),
 	
 	[?_assert(ok =:= Res), ?_assert({ok, Content} =:= C2)].
 
@@ -52,13 +52,13 @@ store_and_retrieve_a_big_file(_) ->
 	Id = "1234567890",
 
 	% writing many "bits"
-	{ok, Ref} = coffer_simple_storage:store_blob_init(Id),
+	{ok, Ref} = coffer_manager:store_blob_init(Id),
 	Res = store_loop(Ref, ContentBit, 0),
 
 	Size = size(ContentBit),
 	ExpectedFinalSize = 1000 * Size,
 
-	{ok, Ref2} = coffer_simple_storage:get_blob_init(Id),
+	{ok, Ref2} = coffer_manager:get_blob_init(Id),
 	ActualSize = compute_size(Ref2, 0),
 
 	[?_assert(ok =:= Res),
@@ -68,9 +68,9 @@ store_and_delete_a_file(_) ->
 	Content = <<"Hello World!">>,
 	ContentHash = coffer_util:content_hash(Content),
 
-	Res  = coffer_simple_storage:store_blob_content(ContentHash, Content),
-	Res2 = coffer_simple_storage:remove_blob(ContentHash),
-	Res3 = coffer_simple_storage:get_blob_init(ContentHash),
+	Res  = coffer_manager:store_blob_content(ContentHash, Content),
+	Res2 = coffer_manager:remove_blob(ContentHash),
+	Res3 = coffer_manager:get_blob_init(ContentHash),
 
 	[?_assert(ok =:= Res),
 	 ?_assert(ok =:= Res2),
@@ -80,10 +80,10 @@ does_it_exist(_) ->
 	Content = <<"Hello World!">>,
 	ContentHash = coffer_util:content_hash(Content),
 
-	coffer_simple_storage:store_blob_content(ContentHash, Content),
+	coffer_manager:store_blob_content(ContentHash, Content),
 
-	ShouldbeThere = coffer_simple_storage:exists(ContentHash),
-	ShouldnotbeThere = coffer_simple_storage:exists("BogusId"),
+	ShouldbeThere = coffer_manager:exists(ContentHash),
+	ShouldnotbeThere = coffer_manager:exists("BogusId"),
 
 	[?_assert(ShouldbeThere =:= true),
 	 ?_assert(ShouldnotbeThere =:= false)].
@@ -93,13 +93,13 @@ does_it_exist(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%
 
 store_loop(Ref, _ContentBit, 1000) ->
-	coffer_simple_storage:store_blob_end(Ref);
+	coffer_manager:store_blob_end(Ref);
 store_loop(Ref, ContentBit, N) ->
-	coffer_simple_storage:store_blob(Ref, ContentBit),
+	coffer_manager:store_blob(Ref, ContentBit),
 	store_loop(Ref, ContentBit, N+1).
 
 compute_size(Ref, N) ->
-	case coffer_simple_storage:get_blob(Ref) of
+	case coffer_manager:get_blob(Ref) of
 		eof ->
 			N;
 		{ok, Data} ->
