@@ -38,37 +38,37 @@ stop() ->
 	gen_server:call(?MODULE, {stop}).
 
 init_storage(Options) ->
-	gen_server:call(?MODULE, {init, Options}).
+	gen_server:call(?MODULE, {init_storage, Options}).
 
 get_blob_init(Id) ->
-	gen_server:call(?MODULE, {start_get, Id}).
+	gen_server:call(?MODULE, {get_blob_init, Id}).
 
 get_blob(Ref) ->
-	gen_server:call(?MODULE, {get, Ref}).
+	gen_server:call(?MODULE, {get_blob, Ref}).
 
 get_blob_end(Ref) ->
-	gen_server:call(?MODULE, {get_end, Ref}).
+	gen_server:call(?MODULE, {get_blob_end, Ref}).
 
 get_blob_content(Id) ->
-	gen_server:call(?MODULE, {get_content, Id}).
+	gen_server:call(?MODULE, {get_blob_content, Id}).
 
 store_blob_init(Id) ->
-	gen_server:call(?MODULE, {start_store, Id}).
+	gen_server:call(?MODULE, {store_blob_init, Id}).
 
 store_blob(Ref, Data) ->
-	gen_server:call(?MODULE, {store, Ref, Data}).
+	gen_server:call(?MODULE, {store_blob, Ref, Data}).
 
 store_blob_end(Ref) ->
-	gen_server:call(?MODULE, {store_end, Ref}).
+	gen_server:call(?MODULE, {store_blob_end, Ref}).
 
 store_blob_content(Id, Data) ->
-	gen_server:call(?MODULE, {store_content, Id, Data}).
+	gen_server:call(?MODULE, {store_blob_content, Id, Data}).
 
 remove_blob(Id) ->
-	gen_server:call(?MODULE, {remove, Id}).
+	gen_server:call(?MODULE, {remove_blob, Id}).
 
 fold_blobs(Func, InitState) ->
-	gen_server:call(?MODULE, {fold, Func, InitState}).
+	gen_server:call(?MODULE, {fold_blobs, Func, InitState}).
 
 exists(Id) ->
 	gen_server:call(?MODULE, {exists, Id}).
@@ -100,37 +100,37 @@ init(Properties) ->
 
 handle_call({stop}, _From, State) ->
 	{stop, normal, ok, State};
-handle_call({init, Options}, _From, #state{config=Config, references=References}=State) ->
+handle_call({init_storage, Options}, _From, #state{config=Config, references=References}=State) ->
 	Reply = do_init_storage(Config, References, Options),
 	{reply, Reply, State};
-handle_call({start_get, Id}, _From, #state{config=Config, references=References}=State) ->
+handle_call({get_blob_init, Id}, _From, #state{config=Config, references=References}=State) ->
 	Reply = do_start_get(Id, Config, References),
 	{reply, Reply, State};
-handle_call({get, Ref}, _From, #state{config=Config, references=References}=State) ->
+handle_call({get_blob, Ref}, _From, #state{config=Config, references=References}=State) ->
 	Reply = do_get(Ref, Config, References),
 	{reply, Reply, State};
-handle_call({get_end, Ref}, _From, #state{references=References}=State) ->
+handle_call({get_blob_end, Ref}, _From, #state{references=References}=State) ->
 	Reply = do_get_end(Ref, References),
 	{reply, Reply, State};
-handle_call({get_content, Id}, _From, #state{config=Config, references=References}=State) ->
+handle_call({get_blob_content, Id}, _From, #state{config=Config, references=References}=State) ->
 	Reply = do_get_blob_content(Id, Config, References),
 	{reply, Reply, State};
-handle_call({start_store, Id}, _From, #state{config=Config, references=References}=State) ->
+handle_call({store_blob_init, Id}, _From, #state{config=Config, references=References}=State) ->
 	Reply = do_start_store(Id, Config, References),
 	{reply, Reply, State};
-handle_call({store, Ref, Data}, _From, #state{references=References}=State) ->
+handle_call({store_blob, Ref, Data}, _From, #state{references=References}=State) ->
 	Reply = do_store(Ref, Data, References),
 	{reply, Reply, State};
-handle_call({store_end, Ref}, _From, #state{references=References}=State) ->
+handle_call({store_blob_end, Ref}, _From, #state{references=References}=State) ->
 	Reply = do_store_end(Ref, References),
 	{reply, Reply, State};
-handle_call({store_content, Id, Data}, _From, #state{config=Config, references=References}=State) ->
+handle_call({store_blob_content, Id, Data}, _From, #state{config=Config, references=References}=State) ->
 	Reply = do_store_blob_content(Id, Config, References, Data),
 	{reply, Reply, State};
-handle_call({remove, Id}, _From, #state{config=Config}=State) ->
+handle_call({remove_blob, Id}, _From, #state{config=Config}=State) ->
 	Reply = do_remove(Id, Config),
 	{reply, Reply, State};
-handle_call({fold, Func, InitState}, _From, #state{config=Config}=State) ->
+handle_call({fold_blobs, Func, InitState}, _From, #state{config=Config}=State) ->
 	Reply = do_fold_blobs(Func, InitState, Config),
 	{reply, Reply, State};
 handle_call({exists, Id}, _From, #state{config=Config}=State) ->
