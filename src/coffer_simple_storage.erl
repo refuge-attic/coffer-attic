@@ -43,11 +43,11 @@ init_storage(Options) ->
 get_blob_init(Id) ->
 	gen_server:call(?MODULE, {get_blob_init, Id}).
 
-get_blob(Ref) ->
-	gen_server:call(?MODULE, {get_blob, Ref}).
+get_blob(Token) ->
+	gen_server:call(?MODULE, {get_blob, Token}).
 
-get_blob_end(Ref) ->
-	gen_server:call(?MODULE, {get_blob_end, Ref}).
+get_blob_end(Token) ->
+	gen_server:call(?MODULE, {get_blob_end, Token}).
 
 get_blob_content(Id) ->
 	gen_server:call(?MODULE, {get_blob_content, Id}).
@@ -55,11 +55,11 @@ get_blob_content(Id) ->
 store_blob_init(Id) ->
 	gen_server:call(?MODULE, {store_blob_init, Id}).
 
-store_blob(Ref, Data) ->
-	gen_server:call(?MODULE, {store_blob, Ref, Data}).
+store_blob(Token, Data) ->
+	gen_server:call(?MODULE, {store_blob, Token, Data}).
 
-store_blob_end(Ref) ->
-	gen_server:call(?MODULE, {store_blob_end, Ref}).
+store_blob_end(Token) ->
+	gen_server:call(?MODULE, {store_blob_end, Token}).
 
 store_blob_content(Id, Data) ->
 	gen_server:call(?MODULE, {store_blob_content, Id, Data}).
@@ -78,9 +78,9 @@ exists(Id) ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
--record(access, {id, iodevice}).
 -record(config, {repo_home, chunk_size}).
--record(state, {config, references}).
+-record(state, {config}).
+-record(token, {id, iodevice, filename, repo_home}).
 
 init(Properties) ->
 
@@ -92,40 +92,37 @@ init(Properties) ->
 	% see if the repository needs to be created
 	maybe_init_repo(RepoHome),
 
-	% create a reference storage
-	References = ets:new(simple_storage_refs, [set]),
-
-	State = #state{config=Config, references=References},
+	State = #state{config=Config},
 	{ok, State}.
 
 handle_call({stop}, _From, State) ->
 	{stop, normal, ok, State};
-handle_call({init_storage, Options}, _From, #state{config=Config, references=References}=State) ->
-	Reply = do_init_storage(Config, References, Options),
+handle_call({init_storage, Options}, _From, #state{config=Config}=State) ->
+	Reply = do_init_storage(Config, Options),
 	{reply, Reply, State};
-handle_call({get_blob_init, Id}, _From, #state{config=Config, references=References}=State) ->
-	Reply = do_start_get(Id, Config, References),
+handle_call({get_blob_init, Id}, _From, #state{config=Config}=State) ->
+	Reply = do_start_get(Id, Config),
 	{reply, Reply, State};
-handle_call({get_blob, Ref}, _From, #state{config=Config, references=References}=State) ->
-	Reply = do_get(Ref, Config, References),
+handle_call({get_blob, Token}, _From, #state{config=Config}=State) ->
+	Reply = do_get(Token, Config),
 	{reply, Reply, State};
-handle_call({get_blob_end, Ref}, _From, #state{references=References}=State) ->
-	Reply = do_get_end(Ref, References),
+handle_call({get_blob_end, Token}, _From, State) ->
+	Reply = do_get_end(Token),
 	{reply, Reply, State};
-handle_call({get_blob_content, Id}, _From, #state{config=Config, references=References}=State) ->
-	Reply = do_get_blob_content(Id, Config, References),
+handle_call({get_blob_content, Id}, _From, #state{config=Config}=State) ->
+	Reply = do_get_blob_content(Id, Config),
 	{reply, Reply, State};
-handle_call({store_blob_init, Id}, _From, #state{config=Config, references=References}=State) ->
-	Reply = do_start_store(Id, Config, References),
+handle_call({store_blob_init, Id}, _From, #state{config=Config}=State) ->
+	Reply = do_start_store(Id, Config),
 	{reply, Reply, State};
-handle_call({store_blob, Ref, Data}, _From, #state{references=References}=State) ->
-	Reply = do_store(Ref, Data, References),
+handle_call({store_blob, Token, Data}, _From, State) ->
+	Reply = do_store(Token, Data),
 	{reply, Reply, State};
-handle_call({store_blob_end, Ref}, _From, #state{references=References}=State) ->
-	Reply = do_store_end(Ref, References),
+handle_call({store_blob_end, Token}, _From, State) ->
+	Reply = do_store_end(Token),
 	{reply, Reply, State};
-handle_call({store_blob_content, Id, Data}, _From, #state{config=Config, references=References}=State) ->
-	Reply = do_store_blob_content(Id, Config, References, Data),
+handle_call({store_blob_content, Id, Data}, _From, #state{config=Config}=State) ->
+	Reply = do_store_blob_content(Id, Config, Data),
 	{reply, Reply, State};
 handle_call({remove_blob, Id}, _From, #state{config=Config}=State) ->
 	Reply = do_remove(Id, Config),
@@ -164,7 +161,7 @@ maybe_init_repo(RepoHome) ->
 			throw({error, cant_init_simple_storage, Error})
 	end.
 
-do_init_storage(Config, References, _Options) ->
+do_init_storage(Config, _Options) ->
 	RepoHome = Config#config.repo_home,
 
 	% first remove any blob
@@ -193,104 +190,67 @@ do_init_storage(Config, References, _Options) ->
 		Dirs
 	),
 
-	% clear the refs
-	ets:delete_all_objects(References),
-
 	ok.
 
-do_start_get(Id, Config, References) ->
+do_start_get(Id, Config) ->
 	RepoHome = Config#config.repo_home,
 	Filename = content_full_location(RepoHome, Id),
 	case filelib:is_file(Filename) of
 		false ->
 			{error, not_exist};
 		true  ->
-			Ref = make_ref(),
 			{ok, IoDevice} = file:open(Filename, [read, binary]),
-			Access = #access{ id=Id, iodevice=IoDevice },
-			ets:insert(References, {Ref, Access}),
-			{ok, Ref}
+			Token = #token{id=Id, iodevice=IoDevice, filename=Filename, repo_home=RepoHome},
+			{ok, Token}
 	end.
 
-do_get(Ref, Config, References) ->
+do_get(#token{iodevice=IoDevice}=_Token, Config) ->
 	ChunkSize = Config#config.chunk_size,
-	case ets:match(References, {Ref, '$1'}) of
-		[] ->
-			{error, wrong_ref};
-		[[#access{iodevice=IoDevice}]] ->
-			case file:read(IoDevice, ChunkSize) of
-				{ok, Data} ->
-					{ok, Data};
-				eof ->
-					eof;
-				{error, Reason} ->
-					{error, Reason}
-			end;
-		_ ->
-			{error, bad_state}
+	case file:read(IoDevice, ChunkSize) of
+		{ok, Data} ->
+			{ok, Data};
+		eof ->
+			eof;
+		{error, Reason} ->
+			{error, Reason}
 	end.
 
-do_get_end(Ref, References) ->
-	case ets:match(References, {Ref, '$1'}) of
-		[] ->
-			{error, wrong_ref};
-		[[#access{iodevice=IoDevice}]] ->
-			file:close(IoDevice),
-			ets:delete(References, Ref),
-			ok;
-		_ ->
-			{error, bad_state}
-	end.
+do_get_end(#token{iodevice=IoDevice}=_Token) ->
+	file:close(IoDevice),
+	ok.
 
 %%
 
-do_start_store(Id, Config, References) ->
+do_start_store(Id, Config) ->
 	RepoHome = Config#config.repo_home,
 	Filename = content_full_location(RepoHome, Id),
 	maybe_create_directory(RepoHome, content_directory(Id)),
-	Ref = make_ref(),
 	{ok, IoDevice} = file:open(Filename, [write, binary]),
-	Access = #access{id=Id, iodevice=IoDevice},
-	ets:insert(References, {Ref, Access}),
-	{ok, Ref}.
+	Token = #token{id=Id, iodevice=IoDevice, filename=Filename, repo_home=RepoHome},
+	{ok, Token}.
 
-do_store(Ref, Data, References) ->
-	case ets:match(References, {Ref, '$1'}) of
-		[] ->
-			{error, wrong_ref};
-		[[#access{iodevice=IoDevice}]] ->
-			case file:write(IoDevice, Data) of
-				ok ->
-					ok;
-				{error, Reason} ->
-					{error, Reason}
-			end;
-		_ ->
-			{error, bad_state}
-	end.
-
-do_store_end(Ref, References) ->
-	case ets:match(References, {Ref, '$1'}) of
-		[] ->
-			{error, wrong_ref};
-		[[#access{iodevice=IoDevice}]] ->
-			file:close(IoDevice),
-			ets:delete(References, Ref),
+do_store(#token{iodevice=IoDevice}=_Token, Data) ->
+	case file:write(IoDevice, Data) of
+		ok ->
 			ok;
-		_ ->
-			{error, bad_state}
+		{error, Reason} ->
+			{error, Reason}
 	end.
+
+do_store_end(#token{iodevice=IoDevice}=_Token) ->
+	file:close(IoDevice),
+	ok.
 
 %%
 
-do_get_blob_content(Id, Config, References) ->
-	{ok, Ref} = do_start_get(Id, Config, References),
-	iterate_over_data(Ref, Config, References, do_get(Ref, Config, References), []).
+do_get_blob_content(Id, Config) ->
+	{ok, Token} = do_start_get(Id, Config),
+	iterate_over_data(Token, Config, do_get(Token, Config), []).
 
-do_store_blob_content(Id, Config, References, Data) ->
-	{ok, Ref} = do_start_store(Id, Config, References),
-	do_store(Ref, Data, References),
-	do_store_end(Ref, References).
+do_store_blob_content(Id, Config, Data) ->
+	{ok, Token} = do_start_store(Id, Config),
+	do_store(Token, Data),
+	do_store_end(Token).
 
 %%
 
@@ -345,12 +305,12 @@ maybe_create_directory(RepoHome, Path) ->
 	FullPath = RepoHome ++ "/" ++ Path,
 	file:make_dir(FullPath).
 
-iterate_over_data(Ref, _Config, References, eof, Acc) ->
-	do_get_end(Ref, References),
+iterate_over_data(Token, _Config, eof, Acc) ->
+	do_get_end(Token),
 	{ok, list_to_binary(lists:reverse(Acc))};
-iterate_over_data(Ref, Config, References, {ok, Data}, Acc) ->
+iterate_over_data(Token, Config, {ok, Data}, Acc) ->
 	NewAcc = [Data | Acc],
-	iterate_over_data(Ref, Config, References, do_get(Ref, Config, References), NewAcc);
-iterate_over_data(Ref, _Config, References, {error, Reason}, _) ->
-	do_get_end(Ref, References),
+	iterate_over_data(Token, Config, do_get(Token, Config), NewAcc);
+iterate_over_data(Token, _Config, {error, Reason}, _) ->
+	do_get_end(Token),
 	{error, Reason}.
