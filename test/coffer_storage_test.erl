@@ -2,6 +2,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(setup(Storage, Options, F), {setup, fun() -> start(Storage, Options) end, fun stop/1, F}).
+-define(title(Storage, Title), "[Storage " ++ atom_to_list(Storage) ++ "]: " ++ Title).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% TESTS DESCRIPTIONS %%%
@@ -14,15 +15,15 @@ do_test_() ->
 	].
 
 test_given_storage(Storage, Options) ->
-	[{"Testing with simple files first.",
+	[{?title(Storage, "Testing with simple files first."),
 	 ?setup(Storage, Options, fun store_and_retrieve_a_file/1)},
-	 {"Testing with a big file.",
+	 {?title(Storage, "Testing with a big file."),
 	 ?setup(Storage, Options, fun store_and_retrieve_a_big_file/1)},
-	 {"Storing a file and testing deletion.",
+	 {?title(Storage, "Storing a file and testing deletion."),
 	 ?setup(Storage, Options, fun store_and_delete_a_file/1)},
-	 {"Testing the existence.",
+	 {?title(Storage, "Testing the existence."),
 	 ?setup(Storage, Options, fun does_it_exist/1)},
-	 {"List several files",
+	 {?title(Storage, "List several files"),
 	  ?setup(Storage, Options, fun listing_files/1)}
 	].
 
