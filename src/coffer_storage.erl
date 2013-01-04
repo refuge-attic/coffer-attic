@@ -12,21 +12,21 @@
 	ok.
 
 -callback get_blob_init(Id :: blob_id()) ->
-	{ok, reference()} | {error, Reason :: atom()}.
+	{ok, any()} | {error, Reason :: atom()}.
 
--callback get_blob(Ref :: reference()) ->
+-callback get_blob(Token :: any()) ->
 	{ok, Data ::  data()} | eof | {error, Reason :: atom()}.
 
--callback get_blob_end(Ref :: reference()) ->
+-callback get_blob_end(Token :: any()) ->
 	ok | {error, Reason :: atom()}.
 
 -callback store_blob_init(Id :: blob_id()) ->
-	{ok, Ref :: reference()} | {error, Reason :: atom()}.
+	{ok, Token :: any()} | {error, Reason :: atom()}.
 
--callback store_blob(Ref :: reference(), Data :: data()) ->
+-callback store_blob(Token :: any(), Data :: data()) ->
 	ok | {error, Reason :: atom()}.
 
--callback store_blob_end(Ref :: reference()) ->
+-callback store_blob_end(Token :: any()) ->
 	ok | {error, Reason :: atom()}.
 
 -callback remove_blob(Id :: blob_id()) ->
