@@ -49,17 +49,17 @@ store_and_retrieve_a_file(_) ->
 
 store_and_retrieve_a_big_file(_) ->
 	{ok, ContentBit} = file:read_file("/etc/passwd"),
-	Id = "1234567890",
+	Id = <<"1234567890">>,
 
 	% writing many "bits"
-	{ok, Ref} = coffer_simple_storage:store_blob_init(Id),
-	Res = store_loop(Ref, ContentBit, 0),
+	{ok, Token} = coffer_simple_storage:store_blob_init(Id),
+	Res = store_loop(Token, ContentBit, 0),
 
 	Size = size(ContentBit),
 	ExpectedFinalSize = 1000 * Size,
 
-	{ok, Ref2} = coffer_simple_storage:get_blob_init(Id),
-	ActualSize = compute_size(Ref2, 0),
+	{ok, Token2} = coffer_simple_storage:get_blob_init(Id),
+	ActualSize = compute_size(Token2, 0),
 
 	[?_assert(ok =:= Res),
 	 ?_assert(ExpectedFinalSize =:= ActualSize)].
@@ -83,7 +83,7 @@ does_it_exist(_) ->
 	coffer_simple_storage:store_blob_content(ContentHash, Content),
 
 	ShouldbeThere = coffer_simple_storage:exists(ContentHash),
-	ShouldnotbeThere = coffer_simple_storage:exists("BogusId"),
+	ShouldnotbeThere = coffer_simple_storage:exists(<<"BogusId">>),
 
 	[?_assert(ShouldbeThere =:= true),
 	 ?_assert(ShouldnotbeThere =:= false)].
@@ -92,19 +92,19 @@ does_it_exist(_) ->
 %%% HELPER FUNCTIONS %%%
 %%%%%%%%%%%%%%%%%%%%%%%%
 
-store_loop(Ref, _ContentBit, 1000) ->
-	coffer_simple_storage:store_blob_end(Ref);
-store_loop(Ref, ContentBit, N) ->
-	coffer_simple_storage:store_blob(Ref, ContentBit),
-	store_loop(Ref, ContentBit, N+1).
+store_loop(Token, _ContentBit, 1000) ->
+	coffer_simple_storage:store_blob_end(Token);
+store_loop(Token, ContentBit, N) ->
+	coffer_simple_storage:store_blob(Token, ContentBit),
+	store_loop(Token, ContentBit, N+1).
 
-compute_size(Ref, N) ->
-	case coffer_simple_storage:get_blob(Ref) of
+compute_size(Token, N) ->
+	case coffer_simple_storage:get_blob(Token) of
 		eof ->
 			N;
 		{ok, Data} ->
 			CurrentSize = size(Data),
-			compute_size(Ref, N + CurrentSize);
+			compute_size(Token, N + CurrentSize);
 		Other ->
 			Other
 	end.

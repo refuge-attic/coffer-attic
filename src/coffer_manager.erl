@@ -39,7 +39,7 @@ init_storage() ->
 init_storage(Options) ->
     gen_server:call(?MODULE, {run, {init_storage, [Options]}}).
 
-get_blob_init(Id) ->
+get_blob_init(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {get_blob_init, [Id]}}).
 
 get_blob(Token) ->
@@ -48,10 +48,10 @@ get_blob(Token) ->
 get_blob_end(Token) ->
     gen_server:call(?MODULE, {run, {get_blob_end, [Token]}}).
 
-get_blob_content(Id) ->
+get_blob_content(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {get_blob_content, [Id]}}).
 
-store_blob_init(Id) ->
+store_blob_init(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {store_blob_init, [Id]}}).
 
 store_blob(Token, Data) ->
@@ -60,16 +60,16 @@ store_blob(Token, Data) ->
 store_blob_end(Token) ->
     gen_server:call(?MODULE, {run, {store_blob_end, [Token]}}).
 
-store_blob_content(Id, Data) ->
+store_blob_content(Id, Data) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {store_blob_content, [Id, Data]}}).
 
-remove_blob(Id) ->
+remove_blob(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {remove_blob, [Id]}}).
 
 fold_blobs(Func, InitState) ->
     gen_server:call(?MODULE, {run, {fold_blobs, [Func, InitState]}}).
 
-exists(Id) ->
+exists(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {exists, [Id]}}).
 
 %% ------------------------------------------------------------------

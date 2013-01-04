@@ -289,15 +289,19 @@ do_exists(Id, Config) ->
 
 %%
 
+-spec content_directory(Id :: binary()) -> string().
 content_directory(Id) ->
-    string:sub_string(Id, 1,2).
+    string:sub_string(binary_to_list(Id), 1,2).
 
+-spec content_filename(Id :: binary()) -> string().
 content_filename(Id) ->
-    string:sub_string(Id, 3).
+    string:sub_string(binary_to_list(Id), 3).
 
+-spec content_location(Id :: binary()) -> string().
 content_location(Id) ->
     content_directory(Id) ++ "/" ++ content_filename(Id).
-    
+
+-spec content_full_location(RepoHome :: string(), Id :: binary()) -> string().
 content_full_location(RepoHome, Id) ->
 	RepoHome ++ "/" ++ content_location(Id).
 
