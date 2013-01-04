@@ -17,7 +17,10 @@ maybe_process_it(<<"GET">>, false, Req0) ->
     {[ContentId], Req} = cowboy_req:path_info(Req0),
     case coffer_manager:exists(ContentId) of
         true  ->
-            cowboy_req:reply(200, [], <<"OK">>, Req);
+            {ok, Req2} = cowboy_req:chunked_reply(200, Req),
+            {ok, Token} = coffer_manager:get_blob_init(ContentId),
+            {ok, Req3} = iterate_over_reading_chunks(Req2, Token),
+            {ok, Req3};
         false ->
             cowboy_req:reply(404, [], <<"Doesn't exist">>, Req)
     end;
@@ -49,6 +52,19 @@ maybe_process_it(_, _, Req) ->
 terminate(_Req, _State) ->
     ok.
 
+%%
+
+iterate_over_reading_chunks(Req, Token) ->
+    case coffer_manager:get_blob(Token) of
+        {ok, Data} ->
+            ok = cowboy_req:chunk(Data, Req),
+            iterate_over_reading_chunks(Req, Token);
+        eof ->
+            coffer_manager:get_blob_end(Token),
+            {ok, Req}
+    end.
+
+%%
 
 acc_multipart(Req) ->
     acc_multipart(cowboy_req:multipart_data(Req), []).
