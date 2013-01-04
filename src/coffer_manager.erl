@@ -42,11 +42,11 @@ init_storage(Options) ->
 get_blob_init(Id) ->
     gen_server:call(?MODULE, {run, {get_blob_init, [Id]}}).
 
-get_blob(Ref) ->
-    gen_server:call(?MODULE, {run, {get_blob, [Ref]}}).
+get_blob(Token) ->
+    gen_server:call(?MODULE, {run, {get_blob, [Token]}}).
 
-get_blob_end(Ref) ->
-    gen_server:call(?MODULE, {run, {get_blob_end, [Ref]}}).
+get_blob_end(Token) ->
+    gen_server:call(?MODULE, {run, {get_blob_end, [Token]}}).
 
 get_blob_content(Id) ->
     gen_server:call(?MODULE, {run, {get_blob_content, [Id]}}).
@@ -54,11 +54,11 @@ get_blob_content(Id) ->
 store_blob_init(Id) ->
     gen_server:call(?MODULE, {run, {store_blob_init, [Id]}}).
 
-store_blob(Ref, Data) ->
-    gen_server:call(?MODULE, {run, {store_blob, [Ref, Data]}}).
+store_blob(Token, Data) ->
+    gen_server:call(?MODULE, {run, {store_blob, [Token, Data]}}).
 
-store_blob_end(Ref) ->
-    gen_server:call(?MODULE, {run, {store_blob_end, [Ref]}}).
+store_blob_end(Token) ->
+    gen_server:call(?MODULE, {run, {store_blob_end, [Token]}}).
 
 store_blob_content(Id, Data) ->
     gen_server:call(?MODULE, {run, {store_blob_content, [Id, Data]}}).
