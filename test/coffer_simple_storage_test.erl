@@ -15,7 +15,9 @@ basic_files_test_() ->
 	 {"Storing a file and testing deletion.",
 	 ?setup(fun store_and_delete_a_file/1)},
 	 {"Testing the existence.",
-	 ?setup(fun does_it_exist/1)}
+	 ?setup(fun does_it_exist/1)},
+	 {"List several files",
+	  ?setup(fun listing_files/1)}
 	].
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -85,8 +87,32 @@ does_it_exist(_) ->
 	ShouldbeThere = coffer_simple_storage:exists(ContentHash),
 	ShouldnotbeThere = coffer_simple_storage:exists(<<"BogusId">>),
 
-	[?_assert(ShouldbeThere =:= true),
-	 ?_assert(ShouldnotbeThere =:= false)].
+	[?_assertEqual(true, ShouldbeThere),
+	 ?_assertEqual(false, ShouldnotbeThere)].
+
+listing_files(_) ->
+	Content1 = <<"Hello World!">>,
+	ContentHash1 = <<"123">>,%coffer_util:content_hash(Content1),
+	Content2 = <<"Foo bar!">>,
+	ContentHash2 = <<"456">>,%coffer_util:content_hash(Content2),
+	Content3 = <<"Something else">>,
+	ContentHash3 = <<"789">>,%coffer_util:content_hash(Content3),
+
+	coffer_simple_storage:store_blob_content(ContentHash1, Content1),
+	coffer_simple_storage:store_blob_content(ContentHash2, Content2),
+	coffer_simple_storage:store_blob_content(ContentHash3, Content3),
+
+	SimpleListFunc = fun(X, Acc) ->
+		[X | Acc]
+	end,
+
+	Res = coffer_simple_storage:fold_blobs(SimpleListFunc, []),
+	Res2 = coffer_simple_storage:remove_blob(ContentHash2),
+	Res3 = coffer_simple_storage:fold_blobs(SimpleListFunc, []),
+
+	[?_assertEqual([ContentHash1, ContentHash2, ContentHash3], Res),
+	 ?_assertEqual(ok, Res2),
+	 ?_assertEqual([ContentHash1, ContentHash3], Res3)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% HELPER FUNCTIONS %%%

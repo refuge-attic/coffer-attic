@@ -270,7 +270,7 @@ do_fold_blobs(Func, InitState, Config) ->
 	ProcessFilename = fun(Filename, Acc) ->
 		Elements = string:tokens(Filename, "/"),
 		Length = length(Elements),
-		Id = lists:nth(Length - 1, Elements) ++ lists:nth(Length, Elements),
+		Id = list_to_binary(lists:nth(Length - 1, Elements) ++ lists:nth(Length, Elements)),
 		Func(Id, Acc)
 	end,
 
