@@ -229,11 +229,12 @@ do_start_store(Id, Config) ->
 	Token = #token{id=Id, iodevice=IoDevice, filename=Filename, repo_home=RepoHome},
 	{ok, Token}.
 
-do_store(#token{iodevice=IoDevice}=_Token, Data) ->
+do_store(#token{id=Id, iodevice=IoDevice}=_Token, Data) ->
 	case file:write(IoDevice, Data) of
 		ok ->
 			ok;
 		{error, Reason} ->
+			lagger:error("Couldn't write data for ID: ~p with reason: ~p", [Id, Reason]),
 			{error, Reason}
 	end.
 

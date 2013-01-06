@@ -25,10 +25,20 @@ maybe_process_it(<<"GET">>, false, Req0) ->
             cowboy_req:reply(404, [], <<"Doesn't exist">>, Req)
     end;
 
-maybe_process_it(<<"POST">>, true, Req) ->
-    {Result, Req2} = acc_multipart(Req),
-    lager:info("Result: ~p~n", [Result]),
-    cowboy_req:reply(200, [], <<"success">>, Req2);
+maybe_process_it(<<"POST">>, true, Req0) ->
+    {[ContentId], Req} = cowboy_req:path_info(Req0),
+    case cowboy_req:has_body(Req) of
+        {true, Req2} ->
+            {ok, Token} = coffer_manager:store_blob_init(ContentId),
+            case iterate_over_writing_chunks(Req2, Token, 0) of
+                {ok, Req3} ->
+                    cowboy_req:reply(201, [], <<"Done">>, Req3);
+                _Other ->
+                    cowboy_req:reply(400, [], <<"Error...">>, Req2)
+            end;
+        {false, Req2} ->
+            cowboy_req:reply(400, [], <<"Bad request">>, Req2)
+    end;
 
 maybe_process_it(<<"POST">>, false, Req) ->
     cowboy_req:reply(400, [], <<"bad request, check input data">>, Req);
@@ -64,18 +74,34 @@ iterate_over_reading_chunks(Req, Token) ->
             {ok, Req}
     end.
 
+iterate_over_writing_chunks(Req, Token, FinalSize) ->
+    case cowboy_req:stream_body(Req) of
+        {ok, Data, Req2} ->
+            %io:format("FinalSize: ~p~n", [FinalSize]),
+            %%io:format("DATA: {~p}~n", [Data]),
+            coffer_manager:store_blob(Token, Data),
+            iterate_over_writing_chunks(Req2, Token, FinalSize+size(Data));
+        {done, Req2} ->
+            coffer_manager:store_blob_end(Token),
+            io:format("Final size: ~p~n", [FinalSize]),
+            {ok, Req2};
+        {error, Reason} ->
+            lager:error("An error occured during writing a blob: ~p", [Reason]),
+            {error, Reason}
+    end.
+
 %%
 
-acc_multipart(Req) ->
-    acc_multipart(cowboy_req:multipart_data(Req), []).
+% acc_multipart(Req) ->
+%     acc_multipart(cowboy_req:multipart_data(Req), []).
 
-acc_multipart({headers, Headers, Req}, Acc) ->
-    lager:info("HEADERS ARE: ~p~n", [Headers]),
-    acc_multipart(cowboy_req:multipart_data(Req), [{Headers, []}|Acc]);
-acc_multipart({body, Data, Req}, [{Headers, BodyAcc}|Acc]) ->
-    acc_multipart(cowboy_req:multipart_data(Req), [{Headers, [Data|BodyAcc]}|Acc]);
-acc_multipart({end_of_part, Req}, [{Headers, BodyAcc}|Acc]) ->
-    acc_multipart(cowboy_req:multipart_data(Req),
-        [{Headers, list_to_binary(lists:reverse(BodyAcc))}|Acc]);
-acc_multipart({eof, Req}, Acc) ->
-    {lists:reverse(Acc), Req}.
+% acc_multipart({headers, Headers, Req}, Acc) ->
+%     lager:info("HEADERS ARE: ~p~n", [Headers]),
+%     acc_multipart(cowboy_req:multipart_data(Req), [{Headers, []}|Acc]);
+% acc_multipart({body, Data, Req}, [{Headers, BodyAcc}|Acc]) ->
+%     acc_multipart(cowboy_req:multipart_data(Req), [{Headers, [Data|BodyAcc]}|Acc]);
+% acc_multipart({end_of_part, Req}, [{Headers, BodyAcc}|Acc]) ->
+%     acc_multipart(cowboy_req:multipart_data(Req),
+%         [{Headers, list_to_binary(lists:reverse(BodyAcc))}|Acc]);
+% acc_multipart({eof, Req}, Acc) ->
+%     {lists:reverse(Acc), Req}.
