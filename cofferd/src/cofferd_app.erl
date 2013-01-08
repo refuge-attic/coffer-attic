@@ -1,4 +1,4 @@
--module(coffer_app).
+-module(cofferd_app).
 
 -behaviour(application).
 
@@ -12,14 +12,14 @@
 start(_StartType, _StartArgs) ->
 	Dispatch = [
 		{'_', [
-			{[<<"blob">>, '...'], coffer_main_handler, []}
+			{[<<"blob">>, '...'], cofferd_main_handler, []}
 		]}
 	],
 	{ok, _} = cowboy:start_http(http, 100, [{port, 8080}], [
 		{dispatch, Dispatch}
 	]),
 
-    coffer_sup:start_link().
+    cofferd_sup:start_link().
 
 stop(_State) ->
     ok.

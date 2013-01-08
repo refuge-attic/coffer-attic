@@ -2,5 +2,8 @@
 deps
 ebin
 .eunit
-rel/coffer
+rel/cofferd
 log
+rebar
+doc/
+log/

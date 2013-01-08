@@ -1,4 +1,4 @@
--module(coffer_main_handler).
+-module(cofferd_main_handler).
 
 -export([init/3, handle/2, terminate/2]).
 
@@ -15,10 +15,10 @@ handle(Req, State) ->
 
 maybe_process_it(<<"GET">>, false, Req0) ->
     {[ContentId], Req} = cowboy_req:path_info(Req0),
-    case coffer_manager:exists(ContentId) of
+    case cofferd_manager:exists(ContentId) of
         true  ->
             {ok, Req2} = cowboy_req:chunked_reply(200, Req),
-            {ok, Token} = coffer_manager:get_blob_init(ContentId),
+            {ok, Token} = cofferd_manager:get_blob_init(ContentId),
             {ok, Req3} = iterate_over_reading_chunks(Req2, Token),
             {ok, Req3};
         false ->
@@ -29,7 +29,7 @@ maybe_process_it(<<"POST">>, true, Req0) ->
     {[ContentId], Req} = cowboy_req:path_info(Req0),
     case cowboy_req:has_body(Req) of
         {true, Req2} ->
-            {ok, Token} = coffer_manager:store_blob_init(ContentId),
+            {ok, Token} = cofferd_manager:store_blob_init(ContentId),
             case iterate_over_writing_chunks(Req2, Token, 0) of
                 {ok, Req3} ->
                     cowboy_req:reply(201, [], <<"Done">>, Req3);
@@ -45,7 +45,7 @@ maybe_process_it(<<"POST">>, false, Req) ->
 
 maybe_process_it(<<"DELETE">>, false, Req0) ->
     {[ContentId], Req} = cowboy_req:path_info(Req0),
-    case coffer_manager:exists(ContentId) of
+    case cofferd_manager:exists(ContentId) of
         true  ->
             cowboy_req:reply(200, [], <<"OK">>, Req);
         false ->
@@ -65,12 +65,12 @@ terminate(_Req, _State) ->
 %%
 
 iterate_over_reading_chunks(Req, Token) ->
-    case coffer_manager:get_blob(Token) of
+    case cofferd_manager:get_blob(Token) of
         {ok, Data} ->
             ok = cowboy_req:chunk(Data, Req),
             iterate_over_reading_chunks(Req, Token);
         eof ->
-            coffer_manager:get_blob_end(Token),
+            cofferd_manager:get_blob_end(Token),
             {ok, Req}
     end.
 
@@ -79,10 +79,10 @@ iterate_over_writing_chunks(Req, Token, FinalSize) ->
         {ok, Data, Req2} ->
             %io:format("FinalSize: ~p~n", [FinalSize]),
             %%io:format("DATA: {~p}~n", [Data]),
-            coffer_manager:store_blob(Token, Data),
+            cofferd_manager:store_blob(Token, Data),
             iterate_over_writing_chunks(Req2, Token, FinalSize+size(Data));
         {done, Req2} ->
-            coffer_manager:store_blob_end(Token),
+            cofferd_manager:store_blob_end(Token),
             io:format("Final size: ~p~n", [FinalSize]),
             {ok, Req2};
         {error, Reason} ->

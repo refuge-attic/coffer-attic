@@ -1,4 +1,4 @@
--module(coffer_manager).
+-module(cofferd_manager).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 

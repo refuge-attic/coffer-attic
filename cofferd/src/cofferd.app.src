@@ -1,4 +1,4 @@
-{application, coffer,
+{application, cofferd,
  [
   {description, "Blob strongbox"},
   {vsn, "0.1"},
@@ -12,6 +12,6 @@
                   ranch,
                   cowboy
                  ]},
-  {mod, { coffer_app, []}},
+  {mod, { cofferd_app, []}},
   {env, [{ip, any}, {port, 8080}]}
  ]}.

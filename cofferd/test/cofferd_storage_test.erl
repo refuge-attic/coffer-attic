@@ -1,4 +1,4 @@
--module(coffer_storage_test).
+-module(cofferd_storage_test).
 -include_lib("eunit/include/eunit.hrl").
 
 -define(setup(Storage, Options, F), {setup, fun() -> start(Storage, Options) end, fun stop/1, F}).
@@ -10,12 +10,13 @@
 
 do_test_() ->
 	[
-	test_given_storage(coffer_simple_storage, [{repo_home, "/tmp/coffer_test_data"}, {chunk_size, 4096}]),
-	test_given_storage(coffer_manager, [coffer_simple_storage, [{repo_home, "/tmp/coffer_test_data"}, {chunk_size, 4096}]])
+	test_given_storage(cofferd_simple_storage, [{repo_home, "/tmp/cofferd_test_data"}, {chunk_size, 4096}]),
+	test_given_storage(cofferd_manager, [cofferd_simple_storage, [{repo_home, "/tmp/cofferd_test_data"}, {chunk_size, 4096}]])
 	].
 
 test_given_storage(Storage, Options) ->
-	[{?title(Storage, "Testing with simple files first."),
+	[
+         {?title(Storage, "Testing with simple files first."),
 	 ?setup(Storage, Options, fun store_and_retrieve_a_file/1)},
 	 {?title(Storage, "Testing with a big file."),
 	 ?setup(Storage, Options, fun store_and_retrieve_a_big_file/1)},
@@ -32,7 +33,7 @@ test_given_storage(Storage, Options) ->
 %%%%%%%%%%%%%%%%%%%%%%%
 
 start(Storage, Options) ->
-	{ok, _Pid} = Storage:start_link(Options),
+	Storage:start_link(Options),
 	Storage:init_storage([]),
 	Storage.
 
@@ -45,7 +46,7 @@ stop(Storage) ->
 
 store_and_retrieve_a_file(Storage) ->
 	Content = <<"Hello World!">>,
-	ContentHash = coffer_util:content_hash(Content),
+	ContentHash = cofferd_util:content_hash(Content),
 
 	Res = Storage:store_blob_content(ContentHash, Content),
 	C2 = Storage:get_blob_content(ContentHash),
@@ -71,7 +72,7 @@ store_and_retrieve_a_big_file(Storage) ->
 
 store_and_delete_a_file(Storage) ->
 	Content = <<"Hello World!">>,
-	ContentHash = coffer_util:content_hash(Content),
+	ContentHash = cofferd_util:content_hash(Content),
 
 	Res  = Storage:store_blob_content(ContentHash, Content),
 	Res2 = Storage:remove_blob(ContentHash),
@@ -83,7 +84,7 @@ store_and_delete_a_file(Storage) ->
 
 does_it_exist(Storage) ->
 	Content = <<"Hello World!">>,
-	ContentHash = coffer_util:content_hash(Content),
+	ContentHash = cofferd_util:content_hash(Content),
 
 	Storage:store_blob_content(ContentHash, Content),
 
@@ -95,11 +96,11 @@ does_it_exist(Storage) ->
 
 listing_files(Storage) ->
 	Content1 = <<"Hello World!">>,
-	ContentHash1 = <<"123">>,%coffer_util:content_hash(Content1),
+	ContentHash1 = <<"123">>,%cofferd_util:content_hash(Content1),
 	Content2 = <<"Foo bar!">>,
-	ContentHash2 = <<"456">>,%coffer_util:content_hash(Content2),
+	ContentHash2 = <<"456">>,%cofferd_util:content_hash(Content2),
 	Content3 = <<"Something else">>,
-	ContentHash3 = <<"789">>,%coffer_util:content_hash(Content3),
+	ContentHash3 = <<"789">>,%cofferd_util:content_hash(Content3),
 
 	Storage:store_blob_content(ContentHash1, Content1),
 	Storage:store_blob_content(ContentHash2, Content2),
@@ -113,9 +114,13 @@ listing_files(Storage) ->
 	Res2 = Storage:remove_blob(ContentHash2),
 	Res3 = Storage:fold_blobs(SimpleListFunc, []),
 
-	[?_assertEqual([ContentHash1, ContentHash2, ContentHash3], Res),
+	ExpectedList1 = [ContentHash1, ContentHash2, ContentHash3],
+	ExpectedList2 = [ContentHash1, ContentHash3],
+
+	% we don't care of the order in the returned lists
+	[?_assertEqual([], lists:subtract(Res, ExpectedList1)),
 	 ?_assertEqual(ok, Res2),
-	 ?_assertEqual([ContentHash1, ContentHash3], Res3)].
+	 ?_assertEqual([], lists:subtract(Res3, ExpectedList2))].
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 %%% HELPER FUNCTIONS %%%

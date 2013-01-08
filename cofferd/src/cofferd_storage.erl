@@ -1,4 +1,4 @@
--module(coffer_storage).
+-module(cofferd_storage).
 
 -include("includes/coffer.hrl").
 
