@@ -1,6 +1,6 @@
 @setlocal
 
-@set node_name=coffer
+@set node_name=cofferd
 
 @rem Get the absolute path to the parent directory,
 @rem which is assumed to be the node root.

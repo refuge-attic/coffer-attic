@@ -24,7 +24,7 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {Backend, BackendArgs} = case application:get_env(coffer, backend) of
+    {Backend, BackendArgs} = case application:get_env(cofferd, backend) of
     	undefined ->
     		{cofferd_simple_storage, [[]]};
     	{ok, Other} ->
