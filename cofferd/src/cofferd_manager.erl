@@ -88,8 +88,8 @@ init([Backend, BackendArgs]) ->
 handle_call({stop}, _From, State) ->
     {stop, normal, ok, State};
 handle_call({run, {Function, Args}}, _From, #state{backend=Backend}=State) ->
-	Reply = apply(Backend, Function, Args),
-	{reply, Reply, State};
+    Reply = apply(Backend, Function, Args),
+    {reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
