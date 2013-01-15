@@ -2,38 +2,52 @@
 
 -include("includes/coffer.hrl").
 
--callback start_link(Args :: list()) ->
-    pid().
+%
+% cofferd_storage is a backend implementation interface used by cofferd_manager.
+%
 
--callback stop() ->
+-type storage_state() :: list().
+
+-type blob_id() :: binary().
+-type blob_data() :: binary().
+
+-callback init(Args :: list()) ->
+    {ok, State :: storage_state()} |
+    {error, Reason :: atom()}.
+
+-callback terminate(State :: storage_state()) ->
     ok.
 
--callback init_storage(Options :: list()) ->
-    ok.
+-callback init_storage(State :: storage_state()) ->
+    {ok, NewState :: storage_state()} |
+    {error, Reason :: atom()}.
 
--callback get_blob_init(Id :: blob_id()) ->
-    {ok, any()} | {error, Reason :: atom()}.
+-callback get_blob_init(Id :: blob_id(), State :: storage_state()) ->
+    {ok, BHandle :: pid(), NewState :: storage_state()} |
+    {error, Reason :: atom()}.
 
--callback get_blob(Token :: any()) ->
-    {ok, Data ::  data()} | eof | {error, Reason :: atom()}.
+-callback get_blob(BHandle :: pid(), State :: storage_state()) ->
+    {ok, Data ::  data()} |
+    eof |
+    {error, Reason :: atom()}.
 
--callback get_blob_end(Token :: any()) ->
+-callback get_blob_end(BHandle :: blob_handle()) ->
     ok | {error, Reason :: atom()}.
 
--callback store_blob_init(Id :: blob_id()) ->
-    {ok, Token :: any()} | {error, Reason :: atom()}.
+-callback store_blob_init(State :: storage_state(), Id :: blob_id()) ->
+    {ok, BHandle :: blob_handle()} | {error, Reason :: atom()}.
 
--callback store_blob(Token :: any(), Data :: data()) ->
+-callback store_blob(State :: storage_state(), BHandle :: blob_handle(), Data :: data()) ->
     ok | {error, Reason :: atom()}.
 
--callback store_blob_end(Token :: any()) ->
+-callback store_blob_end(State :: storage_state(), BHandle :: blob_handle()) ->
     ok | {error, Reason :: atom()}.
 
--callback remove_blob(Id :: blob_id()) ->
+-callback remove_blob(State :: storage_state(), Id :: blob_id()) ->
     ok | {error, Reason :: atom()}.
 
--callback fold_blobs(Func :: fun((Id :: blob_id(), Acc :: any()) -> any()), InitState :: any()) ->
+-callback fold_blobs(State :: storage_state(), Func :: fun((Id :: blob_id(), Acc :: any()) -> any()), InitState :: any()) ->
     any().
 
--callback exists(Id :: blob_id()) ->
+-callback exists(State :: storage_state(), Id :: blob_id()) ->
     boolean().

@@ -7,14 +7,14 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/1, stop/0]).
--export([init_storage/0, init_storage/1]).
--export([get_blob_init/1, get_blob/1, get_blob_end/1,
-         get_blob_content/1]).
--export([store_blob_init/1, store_blob/2, store_blob_end/1,
-         store_blob_content/2]).
--export([remove_blob/1]).
--export([fold_blobs/2]).
--export([exists/1]).
+
+-export([init_storage/1]).
+-export([compact_storage/0]).
+-export([read_blob_init/1, read_blob/1, read_blob_end/1]).
+-export([write_blob_init/1, write_blob/2, write_blob_end/1]).
+-export([delete_blob/1]).
+-export([list_blobs/2]).
+-export([is_blob/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -33,43 +33,37 @@ start_link(Args) ->
 stop() ->
     gen_server:call(?MODULE, {stop}).
 
-init_storage() ->
-    init_storage([]).
-
 init_storage(Options) ->
     gen_server:call(?MODULE, {run, {init_storage, [Options]}}).
 
-get_blob_init(Id) when is_binary(Id) ->
+compact_storage(Options) ->
+    gen_server:call(?MODULE, {run, {compact_storage, [Options]}}).
+
+read_blob_init(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {get_blob_init, [Id]}}).
 
-get_blob(Token) ->
+read_blob(Token) ->
     gen_server:call(?MODULE, {run, {get_blob, [Token]}}).
 
-get_blob_end(Token) ->
+read_blob_end(Token) ->
     gen_server:call(?MODULE, {run, {get_blob_end, [Token]}}).
 
-get_blob_content(Id) when is_binary(Id) ->
-    gen_server:call(?MODULE, {run, {get_blob_content, [Id]}}).
-
-store_blob_init(Id) when is_binary(Id) ->
+write_blob_init(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {store_blob_init, [Id]}}).
 
-store_blob(Token, Data) ->
+write_blob(Token, Data) ->
     gen_server:call(?MODULE, {run, {store_blob, [Token, Data]}}).
 
-store_blob_end(Token) ->
+write_blob_end(Token) ->
     gen_server:call(?MODULE, {run, {store_blob_end, [Token]}}).
 
-store_blob_content(Id, Data) when is_binary(Id) ->
-    gen_server:call(?MODULE, {run, {store_blob_content, [Id, Data]}}).
-
-remove_blob(Id) when is_binary(Id) ->
+delete_blob(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {remove_blob, [Id]}}).
 
-fold_blobs(Func, InitState) ->
+list_blobs(Func, InitState) ->
     gen_server:call(?MODULE, {run, {fold_blobs, [Func, InitState]}}).
 
-exists(Id) when is_binary(Id) ->
+is_blob(Id) when is_binary(Id) ->
     gen_server:call(?MODULE, {run, {exists, [Id]}}).
 
 %% ------------------------------------------------------------------
