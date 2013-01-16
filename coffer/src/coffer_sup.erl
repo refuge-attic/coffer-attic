@@ -1,5 +1,5 @@
 
--module(cofferd_sup).
+-module(coffer_sup).
 
 -behaviour(supervisor).
 
@@ -24,13 +24,13 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {Backend, BackendArgs} = case application:get_env(cofferd, backend) of
+    {Backend, BackendArgs} = case application:get_env(coffer, backend) of
         undefined ->
-            {cofferd_simple_storage, [[]]};
+            {coffer_simple_storage, [[]]};
         {ok, Other} ->
             Other
     end,
-    BlobManager = ?CHILD(cofferd_manager, [[Backend, BackendArgs]]),
+    BlobManager = ?CHILD(coffer_manager, [[Backend, BackendArgs]]),
 
     Children = [BlobManager],
     RestartStrategy = {one_for_one, 1, 60},

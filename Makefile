@@ -2,7 +2,7 @@
 REBAR:=$(shell which rebar || echo ./rebar)
 REBAR_URL:="https://github.com/downloads/basho/rebar/rebar"
 
-PLT = cofferd.plt
+PLT = coffer.plt
 APPS = kernel stdlib sasl erts tools runtime_tools crypto public_key asn1
 
 all: deps rel
@@ -27,7 +27,7 @@ compile: $(REBAR)
 	@$(REBAR) compile
 
 rel: $(REBAR)
-	@rm -rf rel/cofferd
+	@rm -rf rel/coffer
 	@$(REBAR) compile generate
 
 deps: $(REBAR)
@@ -38,7 +38,7 @@ doc: $(REBAR)
 
 clean: $(REBAR)
 	@$(REBAR) clean
-	@rm -rf rel/cofferd
+	@rm -rf rel/coffer
 
 test: $(REBAR)
 	@$(REBAR) eunit skip_deps=true
@@ -51,4 +51,4 @@ check_plt:
 	dialyzer --check_plt --plt $(PLT) --apps $(APPS)
 
 dialyzer:
-	dialyzer --plt $(PLT) cofferd/ebin
+	dialyzer --plt $(PLT) coffer/ebin

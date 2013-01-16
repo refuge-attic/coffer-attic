@@ -1,5 +1,5 @@
 
--module(cofferd_util).
+-module(coffer_util).
 
 -export([content_hash/1, content_hash_on_stream/2]).
 

@@ -1,5 +1,5 @@
--module(cofferd_simple_storage).
--behaviour(cofferd_storage).
+-module(coffer_simple_storage).
+-behaviour(coffer_storage).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 

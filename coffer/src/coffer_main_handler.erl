@@ -1,4 +1,4 @@
--module(cofferd_main_handler).
+-module(coffer_main_handler).
 
 -export([init/3, handle/2, terminate/2]).
 
@@ -15,10 +15,10 @@ handle(Req, State) ->
 
 maybe_process_it(<<"GET">>, false, Req0) ->
     {[ContentId], Req} = cowboy_req:path_info(Req0),
-    case cofferd_manager:exists(ContentId) of
+    case coffer_manager:exists(ContentId) of
         true  ->
             {ok, Req2} = cowboy_req:chunked_reply(200, Req),
-            {ok, Token} = cofferd_manager:get_blob_init(ContentId),
+            {ok, Token} = coffer_manager:get_blob_init(ContentId),
             {ok, Req3} = iterate_over_reading_chunks(Req2, Token),
             {ok, Req3};
         false ->
@@ -31,7 +31,7 @@ maybe_process_it(<<"POST">>, true, Req) ->
 
 maybe_process_it(<<"DELETE">>, false, Req0) ->
     {[ContentId], Req} = cowboy_req:path_info(Req0),
-    case cofferd_manager:exists(ContentId) of
+    case coffer_manager:exists(ContentId) of
         true  ->
             cowboy_req:reply(200, [], <<"OK">>, Req);
         false ->
@@ -51,12 +51,12 @@ terminate(_Req, _State) ->
 %%
 
 iterate_over_reading_chunks(Req, Token) ->
-    case cofferd_manager:get_blob(Token) of
+    case coffer_manager:get_blob(Token) of
         {ok, Data} ->
             ok = cowboy_req:chunk(Data, Req),
             iterate_over_reading_chunks(Req, Token);
         eof ->
-            cofferd_manager:get_blob_end(Token),
+            coffer_manager:get_blob_end(Token),
             {ok, Req}
     end.
 
@@ -65,10 +65,10 @@ iterate_over_reading_chunks(Req, Token) ->
 %        {ok, Data, Req2} ->
 %            %io:format("FinalSize: ~p~n", [FinalSize]),
 %            %%io:format("DATA: {~p}~n", [Data]),
-%            cofferd_manager:store_blob(Token, Data),
+%            coffer_manager:store_blob(Token, Data),
 %            iterate_over_writing_chunks(Req2, Token, FinalSize+size(Data));
 %        {done, Req2} ->
-%            cofferd_manager:store_blob_end(Token),
+%            coffer_manager:store_blob_end(Token),
 %            io:format("Final size: ~p~n", [FinalSize]),
 %            {ok, Req2};
 %        {error, Reason} ->
@@ -101,14 +101,14 @@ iterate_over_parts({headers, Headers, Req}, _) ->
 
     ContentId = proplists:get_value(<<"name">>, Fields),
 
-    {ok, Token} = cofferd_manager:store_blob_init(ContentId),
+    {ok, Token} = coffer_manager:store_blob_init(ContentId),
 
     iterate_over_parts(cowboy_req:multipart_data(Req), Token);
 iterate_over_parts({body, Data, Req}, Token) ->
-    cofferd_manager:store_blob(Token, Data),
+    coffer_manager:store_blob(Token, Data),
     iterate_over_parts(cowboy_req:multipart_data(Req), Token);
 iterate_over_parts({end_of_part, Req}, Token) ->
-    cofferd_manager:store_blob_end(Token),
+    coffer_manager:store_blob_end(Token),
     iterate_over_parts(cowboy_req:multipart_data(Req), <<>>);
 iterate_over_parts({eof, Req}, _) ->
     {ok, Req}.
