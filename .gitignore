@@ -8,3 +8,4 @@ rebar
 doc/
 log/
 *.swp
+erl_crash.dump
